@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生活之間：從住民到公民 - 辯論計時器</title>
+<style>
+  :root {
+    --navy:    #0F2D57;
+    --navy-dk: #081A33;
+    --cream:   #F5EFE0;
+    --yellow:  #F4C430;
+    --yel-dk:  #D4A920;
+    --coral:   #E85A7C;
+    --cor-lt:  #F07090;
+    --cor-dk:  #C8364E;
+    --orange:  #E8742C;
+    --ora-lt:  #F0884C;
+    --ora-dk:  #C85F1F;
+    --ink:     #1A1A1A;
+    --white:   #FFFFFF;
+    --warn:    #C78500;
+    --alert:   #C61F1F;
+    --gray-blue: #4A5F7A;
+    --gray-blue-lt: #5A7090;
+    --gray-blue-dk: #38506A;
+    --track:   #E0D8C4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK TC",
+                 "Microsoft JhengHei", "PingFang TC", sans-serif;
+    background: var(--navy);
+    overflow: hidden;
+  }
+
+  #app {
+    display: grid;
+    grid-template-rows: 88px 1fr 58px auto;
+    height: 100vh;
+    min-height: 600px;
+  }
+
+  /* ── Title Bar ─────────────────────────────────────────────────────── */
+  #title-bar {
+    background: var(--navy);
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    border-bottom: 2px solid var(--navy-dk);
+  }
+  #title-bar h1 {
+    color: var(--cream);
+    font-size: clamp(16px, 2.4vw, 30px);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Main Area ─────────────────────────────────────────────────────── */
+  #main {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    overflow: hidden;
+  }
+
+  /* Left: Timer Panel */
+  #timer-panel {
+    background: var(--cream);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    gap: 12px;
+  }
+
+  #svg-wrapper {
+    width: min(380px, 90%, calc(60vw - 48px));
+    aspect-ratio: 1;
+    position: relative;
+  }
+  #svg-wrapper svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  #time-text {
+    font-size: clamp(36px, 9vw, 72px);
+    font-weight: 900;
+    fill: var(--ink);
+    dominant-baseline: middle;
+    text-anchor: middle;
+    font-family: "SF Mono", "Consolas", "Courier New", monospace;
+    letter-spacing: -2px;
+    transition: fill 0.3s;
+  }
+  #overtime-hint {
+    font-size: clamp(14px, 2.5vw, 22px);
+    font-weight: 700;
+    fill: var(--alert);
+    dominant-baseline: middle;
+    text-anchor: middle;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  #overtime-hint.visible { opacity: 1; }
+
+  #arc-track {
+    fill: none;
+    stroke: var(--track);
+    transition: stroke-width 0.3s;
+  }
+  #arc-progress {
+    fill: none;
+    stroke: var(--coral);
+    stroke-linecap: round;
+    transition: stroke 0.4s, stroke-dashoffset 0.5s linear;
+  }
+
+  #side-label {
+    font-size: clamp(14px, 2vw, 20px);
+    font-weight: 700;
+    color: var(--coral);
+    min-height: 28px;
+    transition: color 0.3s;
+  }
+
+  /* Right: Info Panel */
+  #info-panel {
+    background: var(--coral);
+    padding: 36px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow-y: auto;
+  }
+
+  .info-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--cream);
+    opacity: 0.85;
+    margin-bottom: 4px;
+    letter-spacing: 0.08em;
+  }
+
+  #stage-name {
+    font-size: clamp(20px, 3.5vw, 32px);
+    font-weight: 800;
+    color: var(--cream);
+    line-height: 1.25;
+    margin-bottom: 8px;
+    min-height: 60px;
+  }
+
+  #progress-text {
+    font-size: clamp(14px, 2vw, 18px);
+    font-weight: 700;
+    color: var(--cream);
+    margin-bottom: 22px;
+  }
+
+  .divider {
+    height: 2px;
+    background: var(--cream);
+    opacity: 0.4;
+    margin-bottom: 20px;
+  }
+
+  #stage-select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--cream);
+    color: var(--ink);
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    margin-bottom: 22px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%231A1A1A' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  #stage-select:focus { box-shadow: 0 0 0 3px rgba(255,255,255,0.4); }
+
+  #next-stage-text {
+    font-size: clamp(12px, 1.8vw, 15px);
+    color: var(--cream);
+    line-height: 1.5;
+    opacity: 0.92;
+  }
+
+  /* ── Dot Progress Bar ─────────────────────────────────────────────── */
+  #dot-bar {
+    background: var(--yellow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 40px;
+    gap: 0;
+    overflow: hidden;
+  }
+  #dots-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 900px;
+  }
+  .dot-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+  }
+  .dot {
+    border-radius: 50%;
+    transition: all 0.35s ease;
+    flex-shrink: 0;
+  }
+  .dot.past {
+    width: 12px; height: 12px;
+    background: var(--navy);
+    border: none;
+  }
+  .dot.current {
+    width: 22px; height: 22px;
+    background: var(--coral);
+    border: 3px solid var(--navy);
+    box-shadow: 0 0 0 2px var(--yellow);
+  }
+  .dot.future {
+    width: 12px; height: 12px;
+    background: transparent;
+    border: 2px solid var(--navy);
+  }
+
+  /* ── Button Bar ───────────────────────────────────────────────────── */
+  #btn-bar {
+    background: var(--navy);
+    padding: 18px 0 6px;
+  }
+  #btn-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 0 16px;
+  }
+  .btn-sep { width: 16px; }
+
+  button {
+    font-family: inherit;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    padding: 0 20px;
+    height: 48px;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+  }
+  button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  button:active { transform: translateY(1px); filter: brightness(0.93); box-shadow: none; }
+
+  .btn-nav   { background: var(--cream);   color: var(--ink); }
+  .btn-play  { background: var(--yellow);  color: var(--ink); font-size: 16px; padding: 0 28px; }
+  .btn-reset { background: var(--coral);   color: var(--white); }
+  .btn-plus  { background: var(--orange);  color: var(--white); padding: 0 14px; font-size: 14px; }
+  .btn-minus { background: var(--gray-blue); color: var(--white); padding: 0 14px; font-size: 14px; }
+
+  #shortcut-hint {
+    text-align: center;
+    color: #7A9BC2;
+    font-size: 11px;
+    padding: 6px 0 12px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Fullscreen */
+  :fullscreen #app { height: 100vh; }
+  :-webkit-full-screen #app { height: 100vh; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Title Bar -->
+  <header id="title-bar">
+    <h1>【社交沙龍】生活之間：從住民到公民 系列辯論活動</h1>
+  </header>
+
+  <!-- Main -->
+  <div id="main">
+    <!-- Left: Timer -->
+    <div id="timer-panel">
+      <div id="svg-wrapper">
+        <svg viewBox="0 0 400 400" id="timer-svg">
+          <!-- Track -->
+          <circle id="arc-track" cx="200" cy="200" r="168" stroke-width="26"/>
+          <!-- Progress arc -->
+          <circle id="arc-progress" cx="200" cy="200" r="168"
+                  stroke-width="26"
+                  stroke-dasharray="1055.6"
+                  stroke-dashoffset="0"
+                  transform="rotate(-90 200 200)"/>
+          <!-- Time text -->
+          <text id="time-text" x="200" y="195">00:00</text>
+          <!-- Overtime hint -->
+          <text id="overtime-hint" x="200" y="255">超時中</text>
+        </svg>
+      </div>
+      <div id="side-label">● 正方發言</div>
+    </div>
+
+    <!-- Right: Info -->
+    <div id="info-panel">
+      <div class="info-label">目前環節</div>
+      <div id="stage-name">1. 正方立論 1</div>
+      <div id="progress-text">環節 1 / 14</div>
+      <div class="divider"></div>
+      <div class="info-label">快速跳轉</div>
+      <select id="stage-select"></select>
+      <div class="info-label">下一環節</div>
+      <div id="next-stage-text">▶ 2. 反方立論 1（3 分鐘）</div>
+    </div>
+  </div>
+
+  <!-- Dot Bar -->
+  <div id="dot-bar">
+    <div id="dots-container"></div>
+  </div>
+
+  <!-- Button Bar -->
+  <div id="btn-bar">
+    <div id="btn-inner">
+      <button class="btn-nav"   id="btn-prev">&lt;&lt; 上一階段</button>
+      <button class="btn-play"  id="btn-toggle">開始 / 暫停</button>
+      <button class="btn-nav"   id="btn-next">下一階段 &gt;&gt;</button>
+      <div class="btn-sep"></div>
+      <button class="btn-reset" id="btn-reset">重置</button>
+      <button class="btn-plus"  id="btn-p30">+30 秒</button>
+      <button class="btn-plus"  id="btn-p60">+60 秒</button>
+      <button class="btn-minus" id="btn-m30">−30 秒</button>
+      <button class="btn-minus" id="btn-m60">−60 秒</button>
+    </div>
+    <div id="shortcut-hint">快捷鍵：空白鍵＝開始/暫停　　←→＝換段　　R＝重置　　F11＝全螢幕</div>
+  </div>
+
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────
+const STAGES = [
+  ["1. 正方立論 1",          180],
+  ["2. 反方立論 1",          180],
+  ["3. 正方立論 2",          180],
+  ["4. 反方立論 2",          180],
+  ["5. 正方質詢",            180],
+  ["6. 反方質詢",            180],
+  ["7. 正方申論",            180],
+  ["8. 反方申論",            180],
+  ["9. 討論時間",             60],
+  ["10. 自由辯論 (正方時間)", 180],
+  ["10. 自由辯論 (反方時間)", 180],
+  ["11. 討論時間",            60],
+  ["12. 正方結辯",           120],
+  ["13. 反方結辯",           120],
+  ["活動結束",                 0],
+];
+
+const CIRCUMFERENCE = 2 * Math.PI * 168; // ~1055.6
+
+// ── Colors ────────────────────────────────────────────────────────────────
+const C = {
+  navy:   "#0F2D57",
+  cream:  "#F5EFE0",
+  coral:  "#E85A7C",
+  orange: "#E8742C",
+  ink:    "#1A1A1A",
+  warn:   "#C78500",
+  alert:  "#C61F1F",
+};
+
+// ── State ─────────────────────────────────────────────────────────────────
+let stageIndex = 0;
+let stageTotalTime = STAGES[0][1];
+let timeLeft = stageTotalTime;
+let isRunning = false;
+let isOvertime = false;
+let overtime = 0;
+let tickInterval = null;
+
+// ── DOM ───────────────────────────────────────────────────────────────────
+const arcProgress  = document.getElementById("arc-progress");
+const timeText     = document.getElementById("time-text");
+const overtimeHint = document.getElementById("overtime-hint");
+const sideLabel    = document.getElementById("side-label");
+const stageName    = document.getElementById("stage-name");
+const progressText = document.getElementById("progress-text");
+const nextStageText= document.getElementById("next-stage-text");
+const stageSelect  = document.getElementById("stage-select");
+const dotsContainer= document.getElementById("dots-container");
+
+// ── Audio (Web Audio API beep) ────────────────────────────────────────────
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function playBeep() {
+  try {
+    ensureAudio();
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.6);
+  } catch(e) {}
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function stageRingColor(idx) {
+  idx = idx ?? stageIndex;
+  const name = STAGES[idx][0];
+  if (name.includes("討論")) return C.navy;
+  if (name.includes("反方")) return C.orange;
+  return C.coral;
+}
+
+function stageSideLabel(idx) {
+  idx = idx ?? stageIndex;
+  if (idx >= STAGES.length - 1) return { text: "活動結束", color: C.ink };
+  const name = STAGES[idx][0];
+  if (name.includes("討論")) return { text: "● 討論時間", color: C.navy };
+  if (name.includes("反方")) return { text: "● 反方發言", color: C.orange };
+  if (name.includes("正方")) return { text: "● 正方發言", color: C.coral };
+  return { text: "", color: C.ink };
+}
+
+function fmt(secs) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+
+function fmtStageTime(secs) {
+  if (secs === 0) return "";
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  if (s === 0) return `${m} 分鐘`;
+  return `${m}:${String(s).padStart(2,"0")}`;
+}
+
+// ── UI Update ─────────────────────────────────────────────────────────────
+function updateDisplay() {
+  const total = STAGES.length - 1;
+  const idx = stageIndex;
+
+  stageName.textContent = STAGES[idx][0];
+  progressText.textContent = idx < total ? `環節 ${idx + 1} / ${total}` : "活動已結束";
+
+  const sl = stageSideLabel();
+  sideLabel.textContent = sl.text;
+  sideLabel.style.color = sl.color;
+
+  // Next stage
+  const ni = idx + 1;
+  if (ni < STAGES.length) {
+    const [nn, ns] = STAGES[ni];
+    nextStageText.textContent = ns === 0
+      ? `▶ ${nn}`
+      : `▶ ${nn}（${fmtStageTime(ns)}）`;
+  } else {
+    nextStageText.textContent = "—";
+  }
+
+  // Dots
+  updateDots();
+
+  // Arc & time text
+  const ringColor = stageRingColor();
+
+  if (isOvertime) {
+    timeText.textContent = `+${fmt(overtime)}`;
+    timeText.style.fill = C.alert;
+    arcProgress.style.stroke = C.alert;
+    arcProgress.style.strokeDashoffset = CIRCUMFERENCE;
+    overtimeHint.classList.add("visible");
+  } else {
+    timeText.textContent = fmt(timeLeft);
+    overtimeHint.classList.remove("visible");
+
+    const ratio = stageTotalTime > 0 ? timeLeft / stageTotalTime : 0;
+    const offset = CIRCUMFERENCE * (1 - ratio);
+    arcProgress.style.strokeDashoffset = offset;
+
+    let arcColor, textColor;
+    if (timeLeft === 0) {
+      arcColor = C.alert; textColor = C.alert;
+    } else if (timeLeft <= 30) {
+      arcColor = C.warn;  textColor = C.warn;
+    } else {
+      arcColor = ringColor; textColor = C.ink;
+    }
+    arcProgress.style.stroke = arcColor;
+    timeText.style.fill = textColor;
+  }
+}
+
+function updateDots() {
+  dotsContainer.innerHTML = "";
+  const total = STAGES.length - 1;
+  for (let i = 0; i < total; i++) {
+    const item = document.createElement("div");
+    item.className = "dot-item";
+    const dot = document.createElement("div");
+    dot.className = "dot " + (i < stageIndex ? "past" : i === stageIndex ? "current" : "future");
+    item.appendChild(dot);
+    dotsContainer.appendChild(item);
+  }
+}
+
+// ── Timer Logic ───────────────────────────────────────────────────────────
+function tick() {
+  if (!isRunning) return;
+  if (timeLeft > 0) {
+    timeLeft--;
+    if (timeLeft === 0) {
+      playBeep();
+      isOvertime = true;
+    }
+  } else {
+    overtime++;
+  }
+  updateDisplay();
+}
+
+function toggleTimer() {
+  if (STAGES[stageIndex][1] === 0) return;
+  ensureAudio(); // unlock audio context on user gesture
+  isRunning = !isRunning;
+  if (isRunning) {
+    tickInterval = setInterval(tick, 1000);
+  } else {
+    clearInterval(tickInterval);
+    tickInterval = null;
+  }
+}
+
+function resetTimer() {
+  clearInterval(tickInterval);
+  tickInterval = null;
+  isRunning = false;
+  overtime = 0;
+  isOvertime = false;
+  stageTotalTime = STAGES[stageIndex][1];
+  timeLeft = stageTotalTime;
+  updateDisplay();
+}
+
+function addTime(seconds) {
+  if (seconds > 0) {
+    if (isOvertime) {
+      if (overtime >= seconds) {
+        overtime -= seconds;
+      } else {
+        const back = seconds - overtime;
+        overtime = 0;
+        isOvertime = false;
+        timeLeft = back;
+        stageTotalTime = back;
+      }
+    } else {
+      timeLeft += seconds;
+      if (timeLeft > stageTotalTime) stageTotalTime = timeLeft;
+    }
+  } else {
+    const deduct = Math.abs(seconds);
+    if (isOvertime) {
+      overtime += deduct;
+    } else {
+      timeLeft -= deduct;
+      if (timeLeft <= 0) {
+        overtime = Math.abs(timeLeft);
+        timeLeft = 0;
+        isOvertime = true;
+      }
+    }
+  }
+  updateDisplay();
+}
+
+function loadStage() {
+  clearInterval(tickInterval);
+  tickInterval = null;
+  isRunning = false;
+  overtime = 0;
+  isOvertime = false;
+  stageTotalTime = STAGES[stageIndex][1];
+  timeLeft = stageTotalTime;
+  stageSelect.value = stageIndex;
+  // update arc color immediately
+  arcProgress.style.stroke = stageRingColor();
+  updateDisplay();
+}
+
+function nextStage() {
+  if (stageIndex < STAGES.length - 1) { stageIndex++; loadStage(); }
+}
+function prevStage() {
+  if (stageIndex > 0) { stageIndex--; loadStage(); }
+}
+
+// ── Select Population ─────────────────────────────────────────────────────
+STAGES.forEach(([name], i) => {
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = name;
+  stageSelect.appendChild(opt);
+});
+stageSelect.value = 0;
+stageSelect.addEventListener("change", () => {
+  stageIndex = parseInt(stageSelect.value, 10);
+  loadStage();
+});
+
+// ── Buttons ───────────────────────────────────────────────────────────────
+document.getElementById("btn-prev").addEventListener("click",   prevStage);
+document.getElementById("btn-toggle").addEventListener("click", toggleTimer);
+document.getElementById("btn-next").addEventListener("click",   nextStage);
+document.getElementById("btn-reset").addEventListener("click",  resetTimer);
+document.getElementById("btn-p30").addEventListener("click",  () => addTime(30));
+document.getElementById("btn-p60").addEventListener("click",  () => addTime(60));
+document.getElementById("btn-m30").addEventListener("click",  () => addTime(-30));
+document.getElementById("btn-m60").addEventListener("click",  () => addTime(-60));
+
+// ── Keyboard ──────────────────────────────────────────────────────────────
+document.addEventListener("keydown", (e) => {
+  // Ignore when select is focused
+  if (document.activeElement === stageSelect) return;
+
+  switch(e.key) {
+    case " ":
+      e.preventDefault();
+      toggleTimer();
+      break;
+    case "ArrowRight":
+      e.preventDefault();
+      nextStage();
+      break;
+    case "ArrowLeft":
+      e.preventDefault();
+      prevStage();
+      break;
+    case "r": case "R":
+      resetTimer();
+      break;
+    case "F11":
+      e.preventDefault();
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+      break;
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+arcProgress.style.strokeDasharray = CIRCUMFERENCE;
+arcProgress.style.strokeDashoffset = 0;
+updateDisplay();
+</script>
+</body>
+</html>
