@@ -423,6 +423,7 @@ const dotsContainer= document.getElementById("dots-container");
 let audioCtx = null;
 function ensureAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
 // 滴答聲：倒數 10 秒時每秒一下
