@@ -419,24 +419,52 @@ const nextStageText= document.getElementById("next-stage-text");
 const stageSelect  = document.getElementById("stage-select");
 const dotsContainer= document.getElementById("dots-container");
 
-// ── Audio (Web Audio API beep) ────────────────────────────────────────────
+// ── Audio (Web Audio API) ─────────────────────────────────────────────────
 let audioCtx = null;
 function ensureAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 }
-function playBeep() {
+
+// 滴答聲：倒數 10 秒時每秒一下
+function playTick() {
   try {
     ensureAudio();
     const osc  = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+    osc.type = "square";
+    osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
     osc.start(audioCtx.currentTime);
-    osc.stop(audioCtx.currentTime + 0.6);
+    osc.stop(audioCtx.currentTime + 0.08);
+  } catch(e) {}
+}
+
+// 鬧鐘聲：時間到時播放三段連續鈴聲
+function playAlarm() {
+  try {
+    ensureAudio();
+    const now = audioCtx.currentTime;
+    // 播三次短鈴，間隔 0.3 秒
+    [0, 0.35, 0.70].forEach(offset => {
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = "sine";
+      // 雙頻交替模擬鬧鐘
+      osc.frequency.setValueAtTime(900, now + offset);
+      osc.frequency.setValueAtTime(1100, now + offset + 0.05);
+      osc.frequency.setValueAtTime(900, now + offset + 0.10);
+      osc.frequency.setValueAtTime(1100, now + offset + 0.15);
+      osc.frequency.setValueAtTime(900, now + offset + 0.20);
+      gain.gain.setValueAtTime(0.55, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.28);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.28);
+    });
   } catch(e) {}
 }
 
@@ -548,8 +576,10 @@ function tick() {
   if (timeLeft > 0) {
     timeLeft--;
     if (timeLeft === 0) {
-      playBeep();
+      playAlarm();
       isOvertime = true;
+    } else if (timeLeft <= 10) {
+      playTick();
     }
   } else {
     overtime++;
