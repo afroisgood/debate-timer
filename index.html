@@ -121,7 +121,7 @@
     fill: none;
     stroke: var(--coral);
     stroke-linecap: round;
-    transition: stroke 0.4s, stroke-dashoffset 0.5s linear;
+    transition: stroke 0.4s, stroke-dashoffset 0.25s linear;
   }
 
   #side-label {
@@ -210,7 +210,6 @@
     align-items: center;
     justify-content: center;
     padding: 0 40px;
-    gap: 0;
     overflow: hidden;
   }
   #dots-container {
@@ -225,7 +224,10 @@
     align-items: center;
     justify-content: center;
     flex: 1;
+    cursor: pointer;
+    padding: 6px 0;
   }
+  .dot-item:hover .dot { opacity: 0.65; transform: scale(1.25); }
   .dot {
     border-radius: 50%;
     transition: all 0.35s ease;
@@ -234,7 +236,6 @@
   .dot.past {
     width: 12px; height: 12px;
     background: var(--navy);
-    border: none;
   }
   .dot.current {
     width: 22px; height: 22px;
@@ -277,14 +278,17 @@
     white-space: nowrap;
     box-shadow: 0 3px 8px rgba(0,0,0,0.25);
   }
-  button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  button:hover  { filter: brightness(1.1); transform: translateY(-1px); }
   button:active { transform: translateY(1px); filter: brightness(0.93); box-shadow: none; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
 
-  .btn-nav   { background: var(--cream);   color: var(--ink); }
-  .btn-play  { background: var(--yellow);  color: var(--ink); font-size: 16px; padding: 0 28px; }
-  .btn-reset { background: var(--coral);   color: var(--white); }
-  .btn-plus  { background: var(--orange);  color: var(--white); padding: 0 14px; font-size: 14px; }
-  .btn-minus { background: var(--gray-blue); color: var(--white); padding: 0 14px; font-size: 14px; }
+  .btn-nav   { background: var(--cream);        color: var(--ink); }
+  .btn-play  { background: var(--yellow);        color: var(--ink); font-size: 16px; padding: 0 28px; min-width: 120px; }
+  .btn-play.running { background: var(--yel-dk); }
+  .btn-reset { background: var(--coral);         color: var(--white); }
+  .btn-plus  { background: var(--orange);        color: var(--white); padding: 0 14px; font-size: 14px; }
+  .btn-minus { background: var(--gray-blue);     color: var(--white); padding: 0 14px; font-size: 14px; }
+  .btn-fs    { background: var(--gray-blue-dk);  color: var(--white); padding: 0 14px; font-size: 14px; }
 
   #shortcut-hint {
     text-align: center;
@@ -295,8 +299,53 @@
   }
 
   /* Fullscreen */
-  :fullscreen #app { height: 100vh; }
+  :fullscreen #app       { height: 100vh; }
   :-webkit-full-screen #app { height: 100vh; }
+
+  /* ── RWD: Mobile ──────────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    html, body { overflow: auto; }
+
+    #app {
+      grid-template-rows: auto 1fr auto auto;
+      height: auto;
+      min-height: 100vh;
+    }
+
+    #title-bar {
+      padding: 12px 16px;
+      height: auto;
+    }
+    #title-bar h1 {
+      font-size: clamp(13px, 4vw, 18px);
+      white-space: normal;
+    }
+
+    #main {
+      grid-template-columns: 1fr;
+      overflow: visible;
+    }
+
+    #timer-panel { padding: 16px; }
+
+    #svg-wrapper { width: min(300px, 85vw); }
+
+    #info-panel {
+      padding: 20px 16px;
+    }
+    #stage-name { min-height: auto; }
+
+    #dot-bar { padding: 0 16px; }
+
+    #btn-bar { padding: 12px 0 6px; }
+    #btn-inner { gap: 6px; }
+
+    button { height: 42px; font-size: 13px; padding: 0 12px; }
+    .btn-play { padding: 0 20px; min-width: 100px; }
+    .btn-plus, .btn-minus, .btn-fs { padding: 0 10px; font-size: 12px; }
+    .btn-sep { width: 4px; }
+    #shortcut-hint { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -313,17 +362,13 @@
     <div id="timer-panel">
       <div id="svg-wrapper">
         <svg viewBox="0 0 400 400" id="timer-svg">
-          <!-- Track -->
           <circle id="arc-track" cx="200" cy="200" r="168" stroke-width="26"/>
-          <!-- Progress arc -->
           <circle id="arc-progress" cx="200" cy="200" r="168"
                   stroke-width="26"
                   stroke-dasharray="1055.6"
                   stroke-dashoffset="0"
                   transform="rotate(-90 200 200)"/>
-          <!-- Time text -->
           <text id="time-text" x="200" y="195">00:00</text>
-          <!-- Overtime hint -->
           <text id="overtime-hint" x="200" y="255">超時中</text>
         </svg>
       </div>
@@ -352,14 +397,16 @@
   <div id="btn-bar">
     <div id="btn-inner">
       <button class="btn-nav"   id="btn-prev">&lt;&lt; 上一階段</button>
-      <button class="btn-play"  id="btn-toggle">開始 / 暫停</button>
+      <button class="btn-play"  id="btn-toggle">▶ 開始</button>
       <button class="btn-nav"   id="btn-next">下一階段 &gt;&gt;</button>
       <div class="btn-sep"></div>
       <button class="btn-reset" id="btn-reset">重置</button>
-      <button class="btn-plus"  id="btn-p30">+30 秒</button>
-      <button class="btn-plus"  id="btn-p60">+60 秒</button>
-      <button class="btn-minus" id="btn-m30">−30 秒</button>
-      <button class="btn-minus" id="btn-m60">−60 秒</button>
+      <button class="btn-plus"  id="btn-p30">+30s</button>
+      <button class="btn-plus"  id="btn-p60">+60s</button>
+      <button class="btn-minus" id="btn-m30">−30s</button>
+      <button class="btn-minus" id="btn-m60">−60s</button>
+      <div class="btn-sep"></div>
+      <button class="btn-fs"    id="btn-fs">⛶ 全螢幕</button>
     </div>
     <div id="shortcut-hint">快捷鍵：空白鍵＝開始/暫停　　←→＝換段　　R＝重置　　F11＝全螢幕</div>
   </div>
@@ -388,36 +435,46 @@ const STAGES = [
 
 const CIRCUMFERENCE = 2 * Math.PI * 168; // ~1055.6
 
-// ── Colors ────────────────────────────────────────────────────────────────
+// ── Colors (從 CSS 變數讀取，避免重複定義) ────────────────────────────────
+const cssVars = getComputedStyle(document.documentElement);
 const C = {
-  navy:   "#0F2D57",
-  cream:  "#F5EFE0",
-  coral:  "#E85A7C",
-  orange: "#E8742C",
-  ink:    "#1A1A1A",
-  warn:   "#C78500",
-  alert:  "#C61F1F",
+  navy:   cssVars.getPropertyValue('--navy').trim(),
+  cream:  cssVars.getPropertyValue('--cream').trim(),
+  coral:  cssVars.getPropertyValue('--coral').trim(),
+  orange: cssVars.getPropertyValue('--orange').trim(),
+  ink:    cssVars.getPropertyValue('--ink').trim(),
+  warn:   cssVars.getPropertyValue('--warn').trim(),
+  alert:  cssVars.getPropertyValue('--alert').trim(),
 };
 
 // ── State ─────────────────────────────────────────────────────────────────
-let stageIndex = 0;
+let stageIndex    = 0;
 let stageTotalTime = STAGES[0][1];
-let timeLeft = stageTotalTime;
-let isRunning = false;
-let isOvertime = false;
-let overtime = 0;
-let tickInterval = null;
+let timeLeft      = stageTotalTime;
+let isRunning     = false;
+let isOvertime    = false;
+let overtime      = 0;
+let tickInterval  = null;
+
+// 漂移補償狀態
+let runStart         = null;
+let runBaseLeft      = null;
+let runBaseIsOvertime = false;
+let runBaseOvertime  = 0;
+let lastDisplayedSec = -1;
+let alarmPlayed      = false;
 
 // ── DOM ───────────────────────────────────────────────────────────────────
-const arcProgress  = document.getElementById("arc-progress");
-const timeText     = document.getElementById("time-text");
-const overtimeHint = document.getElementById("overtime-hint");
-const sideLabel    = document.getElementById("side-label");
-const stageName    = document.getElementById("stage-name");
-const progressText = document.getElementById("progress-text");
-const nextStageText= document.getElementById("next-stage-text");
-const stageSelect  = document.getElementById("stage-select");
-const dotsContainer= document.getElementById("dots-container");
+const arcProgress   = document.getElementById("arc-progress");
+const timeText      = document.getElementById("time-text");
+const overtimeHint  = document.getElementById("overtime-hint");
+const sideLabel     = document.getElementById("side-label");
+const stageName     = document.getElementById("stage-name");
+const progressText  = document.getElementById("progress-text");
+const nextStageText = document.getElementById("next-stage-text");
+const stageSelect   = document.getElementById("stage-select");
+const dotsContainer = document.getElementById("dots-container");
+const btnToggle     = document.getElementById("btn-toggle");
 
 // ── Audio (Web Audio API) ─────────────────────────────────────────────────
 let audioCtx = null;
@@ -426,7 +483,6 @@ function ensureAudio() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
-// 滴答聲：倒數 10 秒時每秒一下
 function playTick() {
   try {
     ensureAudio();
@@ -443,24 +499,21 @@ function playTick() {
   } catch(e) {}
 }
 
-// 鬧鐘聲：時間到時播放三段連續鈴聲
 function playAlarm() {
   try {
     ensureAudio();
     const now = audioCtx.currentTime;
-    // 播三次短鈴，間隔 0.3 秒
     [0, 0.35, 0.70].forEach(offset => {
       const osc  = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.type = "sine";
-      // 雙頻交替模擬鬧鐘
-      osc.frequency.setValueAtTime(900, now + offset);
+      osc.frequency.setValueAtTime(900,  now + offset);
       osc.frequency.setValueAtTime(1100, now + offset + 0.05);
-      osc.frequency.setValueAtTime(900, now + offset + 0.10);
+      osc.frequency.setValueAtTime(900,  now + offset + 0.10);
       osc.frequency.setValueAtTime(1100, now + offset + 0.15);
-      osc.frequency.setValueAtTime(900, now + offset + 0.20);
+      osc.frequency.setValueAtTime(900,  now + offset + 0.20);
       gain.gain.setValueAtTime(0.55, now + offset);
       gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.28);
       osc.start(now + offset);
@@ -505,109 +558,153 @@ function fmtStageTime(secs) {
 // ── UI Update ─────────────────────────────────────────────────────────────
 function updateDisplay() {
   const total = STAGES.length - 1;
-  const idx = stageIndex;
+  const idx   = stageIndex;
 
-  stageName.textContent = STAGES[idx][0];
+  stageName.textContent    = STAGES[idx][0];
   progressText.textContent = idx < total ? `環節 ${idx + 1} / ${total}` : "活動已結束";
 
   const sl = stageSideLabel();
-  sideLabel.textContent = sl.text;
-  sideLabel.style.color = sl.color;
+  sideLabel.textContent  = sl.text;
+  sideLabel.style.color  = sl.color;
 
-  // Next stage
   const ni = idx + 1;
   if (ni < STAGES.length) {
     const [nn, ns] = STAGES[ni];
-    nextStageText.textContent = ns === 0
-      ? `▶ ${nn}`
-      : `▶ ${nn}（${fmtStageTime(ns)}）`;
+    nextStageText.textContent = ns === 0 ? `▶ ${nn}` : `▶ ${nn}（${fmtStageTime(ns)}）`;
   } else {
     nextStageText.textContent = "—";
   }
 
-  // Dots
   updateDots();
+  updateToggleBtn();
 
-  // Arc & time text
   const ringColor = stageRingColor();
 
   if (isOvertime) {
-    timeText.textContent = `+${fmt(overtime)}`;
-    timeText.style.fill = C.alert;
-    arcProgress.style.stroke = C.alert;
+    timeText.textContent              = `+${fmt(overtime)}`;
+    timeText.style.fill               = C.alert;
+    arcProgress.style.stroke          = C.alert;
     arcProgress.style.strokeDashoffset = CIRCUMFERENCE;
     overtimeHint.classList.add("visible");
   } else {
     timeText.textContent = fmt(timeLeft);
     overtimeHint.classList.remove("visible");
 
-    const ratio = stageTotalTime > 0 ? timeLeft / stageTotalTime : 0;
-    const offset = CIRCUMFERENCE * (1 - ratio);
-    arcProgress.style.strokeDashoffset = offset;
+    const ratio  = stageTotalTime > 0 ? timeLeft / stageTotalTime : 0;
+    arcProgress.style.strokeDashoffset = CIRCUMFERENCE * (1 - ratio);
 
     let arcColor, textColor;
-    if (timeLeft === 0) {
-      arcColor = C.alert; textColor = C.alert;
-    } else if (timeLeft <= 30) {
-      arcColor = C.warn;  textColor = C.warn;
-    } else {
-      arcColor = ringColor; textColor = C.ink;
-    }
+    if (timeLeft === 0)      { arcColor = C.alert; textColor = C.alert; }
+    else if (timeLeft <= 30) { arcColor = C.warn;  textColor = C.warn;  }
+    else                     { arcColor = ringColor; textColor = C.ink; }
     arcProgress.style.stroke = arcColor;
-    timeText.style.fill = textColor;
+    timeText.style.fill      = textColor;
   }
 }
 
-function updateDots() {
+function updateToggleBtn() {
+  const isEnd = STAGES[stageIndex][1] === 0;
+  if (isEnd) {
+    btnToggle.textContent = "活動結束";
+    btnToggle.disabled    = true;
+    btnToggle.classList.remove("running");
+  } else if (isRunning) {
+    btnToggle.textContent = "⏸ 暫停";
+    btnToggle.disabled    = false;
+    btnToggle.classList.add("running");
+  } else {
+    btnToggle.textContent = "▶ 開始";
+    btnToggle.disabled    = false;
+    btnToggle.classList.remove("running");
+  }
+}
+
+// 初始化一次，之後只切換 class（避免每秒重建 DOM）
+function buildDots() {
   dotsContainer.innerHTML = "";
   const total = STAGES.length - 1;
   for (let i = 0; i < total; i++) {
     const item = document.createElement("div");
     item.className = "dot-item";
+    item.title     = STAGES[i][0];
     const dot = document.createElement("div");
-    dot.className = "dot " + (i < stageIndex ? "past" : i === stageIndex ? "current" : "future");
+    dot.className  = "dot future";
     item.appendChild(dot);
+    item.addEventListener("click", () => { stageIndex = i; loadStage(); });
     dotsContainer.appendChild(item);
   }
 }
 
-// ── Timer Logic ───────────────────────────────────────────────────────────
+function updateDots() {
+  dotsContainer.querySelectorAll(".dot").forEach((dot, i) => {
+    dot.className = "dot " + (i < stageIndex ? "past" : i === stageIndex ? "current" : "future");
+  });
+}
+
+// ── Timer Logic（Date.now() 漂移補償）────────────────────────────────────
 function tick() {
   if (!isRunning) return;
-  if (timeLeft > 0) {
-    timeLeft--;
-    if (timeLeft === 0) {
-      playAlarm();
-      isOvertime = true;
-    } else if (timeLeft <= 10) {
-      playTick();
-    }
+
+  const elapsed = Math.floor((Date.now() - runStart) / 1000);
+  let currentSec;
+
+  if (runBaseIsOvertime) {
+    overtime   = runBaseOvertime + elapsed;
+    timeLeft   = 0;
+    isOvertime = true;
+    currentSec = -(runBaseOvertime + elapsed);
   } else {
-    overtime++;
+    const remaining = runBaseLeft - elapsed;
+    if (remaining > 0) {
+      timeLeft   = remaining;
+      isOvertime = false;
+      overtime   = 0;
+      currentSec = remaining;
+    } else {
+      if (!alarmPlayed) { playAlarm(); alarmPlayed = true; }
+      timeLeft   = 0;
+      isOvertime = true;
+      overtime   = -remaining;
+      currentSec = remaining; // 負數
+    }
   }
+
+  // 秒數改變時才播 tick 音，避免 200ms 輪詢重複觸發
+  if (currentSec !== lastDisplayedSec) {
+    if (currentSec > 0 && currentSec <= 10) playTick();
+    lastDisplayedSec = currentSec;
+  }
+
   updateDisplay();
 }
 
 function toggleTimer() {
   if (STAGES[stageIndex][1] === 0) return;
-  ensureAudio(); // unlock audio context on user gesture
+  ensureAudio();
   isRunning = !isRunning;
   if (isRunning) {
-    tickInterval = setInterval(tick, 1000);
+    runStart          = Date.now();
+    runBaseLeft       = timeLeft;
+    runBaseIsOvertime = isOvertime;
+    runBaseOvertime   = overtime;
+    lastDisplayedSec  = isOvertime ? -overtime : timeLeft;
+    alarmPlayed       = isOvertime;
+    tickInterval      = setInterval(tick, 200);
   } else {
     clearInterval(tickInterval);
     tickInterval = null;
   }
+  updateToggleBtn();
 }
 
 function resetTimer() {
   clearInterval(tickInterval);
-  tickInterval = null;
-  isRunning = false;
-  overtime = 0;
-  isOvertime = false;
+  tickInterval   = null;
+  isRunning      = false;
+  overtime       = 0;
+  isOvertime     = false;
   stageTotalTime = STAGES[stageIndex][1];
-  timeLeft = stageTotalTime;
+  timeLeft       = stageTotalTime;
   updateDisplay();
 }
 
@@ -618,9 +715,9 @@ function addTime(seconds) {
         overtime -= seconds;
       } else {
         const back = seconds - overtime;
-        overtime = 0;
+        overtime   = 0;
         isOvertime = false;
-        timeLeft = back;
+        timeLeft   = back;
         stageTotalTime = back;
       }
     } else {
@@ -634,35 +731,38 @@ function addTime(seconds) {
     } else {
       timeLeft -= deduct;
       if (timeLeft <= 0) {
-        overtime = Math.abs(timeLeft);
-        timeLeft = 0;
+        overtime   = Math.abs(timeLeft);
+        timeLeft   = 0;
         isOvertime = true;
       }
     }
+  }
+  // 重新校準基準，確保補時後不跳秒
+  if (isRunning) {
+    runStart          = Date.now();
+    runBaseLeft       = timeLeft;
+    runBaseIsOvertime = isOvertime;
+    runBaseOvertime   = overtime;
+    lastDisplayedSec  = isOvertime ? -overtime : timeLeft;
   }
   updateDisplay();
 }
 
 function loadStage() {
   clearInterval(tickInterval);
-  tickInterval = null;
-  isRunning = false;
-  overtime = 0;
-  isOvertime = false;
+  tickInterval   = null;
+  isRunning      = false;
+  overtime       = 0;
+  isOvertime     = false;
   stageTotalTime = STAGES[stageIndex][1];
-  timeLeft = stageTotalTime;
+  timeLeft       = stageTotalTime;
   stageSelect.value = stageIndex;
-  // update arc color immediately
   arcProgress.style.stroke = stageRingColor();
   updateDisplay();
 }
 
-function nextStage() {
-  if (stageIndex < STAGES.length - 1) { stageIndex++; loadStage(); }
-}
-function prevStage() {
-  if (stageIndex > 0) { stageIndex--; loadStage(); }
-}
+function nextStage() { if (stageIndex < STAGES.length - 1) { stageIndex++; loadStage(); } }
+function prevStage() { if (stageIndex > 0)                 { stageIndex--; loadStage(); } }
 
 // ── Select Population ─────────────────────────────────────────────────────
 STAGES.forEach(([name], i) => {
@@ -687,41 +787,38 @@ document.getElementById("btn-p60").addEventListener("click",  () => addTime(60))
 document.getElementById("btn-m30").addEventListener("click",  () => addTime(-30));
 document.getElementById("btn-m60").addEventListener("click",  () => addTime(-60));
 
+document.getElementById("btn-fs").addEventListener("click", () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+});
+document.addEventListener("fullscreenchange", () => {
+  document.getElementById("btn-fs").textContent =
+    document.fullscreenElement ? "✕ 離開全螢幕" : "⛶ 全螢幕";
+});
+
 // ── Keyboard ──────────────────────────────────────────────────────────────
 document.addEventListener("keydown", (e) => {
-  // Ignore when select is focused
   if (document.activeElement === stageSelect) return;
-
   switch(e.key) {
-    case " ":
-      e.preventDefault();
-      toggleTimer();
-      break;
-    case "ArrowRight":
-      e.preventDefault();
-      nextStage();
-      break;
-    case "ArrowLeft":
-      e.preventDefault();
-      prevStage();
-      break;
-    case "r": case "R":
-      resetTimer();
-      break;
+    case " ":        e.preventDefault(); toggleTimer(); break;
+    case "ArrowRight": e.preventDefault(); nextStage();   break;
+    case "ArrowLeft":  e.preventDefault(); prevStage();   break;
+    case "r": case "R": resetTimer(); break;
     case "F11":
       e.preventDefault();
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else {
-        document.exitFullscreen().catch(() => {});
-      }
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+      else document.exitFullscreen().catch(() => {});
       break;
   }
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────
-arcProgress.style.strokeDasharray = CIRCUMFERENCE;
+arcProgress.style.strokeDasharray  = CIRCUMFERENCE;
 arcProgress.style.strokeDashoffset = 0;
+buildDots();
 updateDisplay();
 </script>
 </body>
