@@ -558,7 +558,8 @@ if (!deviceId) {
 }
 
 let nickname = localStorage.getItem("debate_nickname") || "";
-let currentVote = null; // "正方" | "反方" | null
+let currentVote = null;   // "正方" | "反方" | null
+let votingAllowed = true; // updated from Firebase debate/config/votingOpen
 
 // ══════════════════════════════════════════════════════════════
 // NICKNAME SCREEN
@@ -625,15 +626,15 @@ function applyNewNick() {
 function initFirebaseListeners() {
   // Listen to voting open/close status
   db.ref("debate/config/votingOpen").on("value", snap => {
-    const open = snap.val() !== false;
+    votingAllowed = snap.val() !== false;
     const notice = document.getElementById("vote-closed-notice");
     const proBt  = document.getElementById("vote-pro");
     const conBt  = document.getElementById("vote-con");
-    notice.style.display = open ? "none" : "block";
-    proBt.disabled = !open;
-    conBt.disabled = !open;
-    proBt.style.opacity = open ? "" : "0.4";
-    conBt.style.opacity = open ? "" : "0.4";
+    notice.style.display = votingAllowed ? "none" : "block";
+    proBt.disabled = !votingAllowed;
+    conBt.disabled = !votingAllowed;
+    proBt.style.opacity = votingAllowed ? "" : "0.4";
+    conBt.style.opacity = votingAllowed ? "" : "0.4";
   });
 
   // Listen to own vote
@@ -672,6 +673,7 @@ document.getElementById("vote-pro").addEventListener("click", () => castVote("�
 document.getElementById("vote-con").addEventListener("click", () => castVote("反方"));
 
 function castVote(side) {
+  if (!votingAllowed) { showToast("投票已關閉"); return; }
   if (currentVote === side) return; // already selected
   db.ref(`debate/votes/${deviceId}`).set({
     nickname: nickname,
