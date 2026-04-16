@@ -100,7 +100,7 @@
   }
 
   #svg-wrapper {
-    width: min(240px, 88%, calc(52vw - 90px));
+    width: min(300px, 90%, calc(52vw - 60px));
     aspect-ratio: 1;
     flex-shrink: 0;
   }
@@ -143,34 +143,36 @@
     width: 100%;
     border-top: 2px solid var(--track);
     border-bottom: 2px solid var(--track);
-    padding: 10px 0;
+    padding: 12px 0;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
   }
   .info-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     color: var(--gray-blue);
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
   #stage-name {
-    font-size: clamp(15px, 2.2vw, 24px);
-    font-weight: 800;
+    font-size: clamp(20px, 3vw, 34px);
+    font-weight: 900;
     color: var(--ink);
     line-height: 1.2;
   }
   #progress-text {
-    font-size: clamp(11px, 1.3vw, 14px);
+    font-size: clamp(12px, 1.4vw, 15px);
     font-weight: 600;
     color: var(--gray-blue);
   }
   #next-stage-text {
-    font-size: clamp(10px, 1.2vw, 13px);
+    font-size: clamp(11px, 1.3vw, 14px);
     color: var(--gray-blue);
     line-height: 1.4;
-    margin-top: 4px;
+    margin-top: 6px;
   }
 
   /* Stage nav */
@@ -338,8 +340,8 @@
   .action-btn:hover { background: rgba(255,255,255,0.14); color: var(--cream); }
   .action-btn.danger { background: rgba(198,31,31,0.25); color: #FF9999; }
   .action-btn.danger:hover { background: rgba(198,31,31,0.45); }
-  #export-btn { display: none; }
-  .admin-active #export-btn { display: inline-block; }
+  #export-btn, #clear-votes-btn { display: none; }
+  .admin-active #export-btn, .admin-active #clear-votes-btn { display: inline-block; }
 
   #comment-list {
     flex: 1;
@@ -583,6 +585,7 @@
         <div class="section-header">
           <span class="section-title">即時投票</span>
           <span class="section-badge" id="total-votes">0 票</span>
+          <button class="action-btn danger" id="clear-votes-btn">清除投票</button>
         </div>
         <div class="vote-row">
           <div class="vote-side-block pro">
@@ -1075,7 +1078,7 @@ const adminModal = document.getElementById("admin-modal");
 const adminPwd   = document.getElementById("admin-pwd");
 const adminError = document.getElementById("admin-error");
 const adminBtn   = document.getElementById("admin-btn");
-const commentSection = document.getElementById("comment-section");
+const commentSection = document.getElementById("right-panel");
 
 adminBtn.addEventListener("click", () => {
   if (isAdminMode) {
@@ -1106,6 +1109,15 @@ function confirmAdmin() {
     adminPwd.select();
   }
 }
+
+// ══════════════════════════════════════════════════════════════
+// CLEAR VOTES (admin only)
+// ══════════════════════════════════════════════════════════════
+document.getElementById("clear-votes-btn").addEventListener("click", () => {
+  if (confirm("確定要清除所有投票紀錄嗎？此操作無法復原。")) {
+    db.ref("debate/votes").remove();
+  }
+});
 
 // ══════════════════════════════════════════════════════════════
 // EXPORT
