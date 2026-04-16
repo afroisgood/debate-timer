@@ -459,7 +459,10 @@
 
   <!-- Vote Section -->
   <div class="app-section" id="vote-section">
-    <div class="section-label">投票（可隨時更改）</div>
+    <div class="section-label" id="vote-section-label">投票（可隨時更改）</div>
+    <div id="vote-closed-notice" style="display:none; background:rgba(198,31,31,0.15); border:1px solid rgba(198,31,31,0.4); border-radius:10px; padding:10px 14px; font-size:13px; color:#FF9999; text-align:center; margin-bottom:10px;">
+      投票目前已關閉，請等待主持人開放
+    </div>
     <div id="vote-buttons">
       <button class="vote-btn pro" id="vote-pro">
         正方
@@ -620,6 +623,19 @@ function applyNewNick() {
 // FIREBASE LISTENERS
 // ══════════════════════════════════════════════════════════════
 function initFirebaseListeners() {
+  // Listen to voting open/close status
+  db.ref("debate/config/votingOpen").on("value", snap => {
+    const open = snap.val() !== false;
+    const notice = document.getElementById("vote-closed-notice");
+    const proBt  = document.getElementById("vote-pro");
+    const conBt  = document.getElementById("vote-con");
+    notice.style.display = open ? "none" : "block";
+    proBt.disabled = !open;
+    conBt.disabled = !open;
+    proBt.style.opacity = open ? "" : "0.4";
+    conBt.style.opacity = open ? "" : "0.4";
+  });
+
   // Listen to own vote
   db.ref(`debate/votes/${deviceId}`).on("value", snap => {
     const v = snap.val();

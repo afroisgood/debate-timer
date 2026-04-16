@@ -21,6 +21,8 @@
     --gray-blue:    #4A5F7A;
     --gray-blue-dk: #38506A;
     --track:        #D8D0BC;
+    --sky:          #5BC8F0;
+    --sky-dk:       #3AAAD4;
     --right-bg:     #071428;
     --right-card:   #0D1F3C;
   }
@@ -94,15 +96,16 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 14px 18px 10px;
-    gap: 8px;
-    overflow-y: auto;
+    padding: 10px 16px 8px;
+    gap: 6px;
+    overflow: hidden;
   }
 
   #svg-wrapper {
-    width: min(300px, 90%, calc(52vw - 60px));
+    width: min(500px, 92%, calc(52vw - 32px));
     aspect-ratio: 1;
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-height: 0;
   }
   #svg-wrapper svg { width: 100%; height: 100%; overflow: visible; }
 
@@ -197,13 +200,21 @@
   }
   #stage-select:focus { border-color: var(--coral); outline: none; }
 
-  /* Dot bar (inside left panel) */
-  #dot-bar {
+  /* Bottom info group — pushed to bottom */
+  #left-bottom {
     width: 100%;
     margin-top: auto;
-    padding-top: 8px;
-    border-top: 2px solid var(--track);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     flex-shrink: 0;
+  }
+
+  /* Dot bar */
+  #dot-bar {
+    width: 100%;
+    padding-top: 6px;
+    border-top: 2px solid var(--track);
   }
   #dots-container {
     display: flex;
@@ -340,8 +351,22 @@
   .action-btn:hover { background: rgba(255,255,255,0.14); color: var(--cream); }
   .action-btn.danger { background: rgba(198,31,31,0.25); color: #FF9999; }
   .action-btn.danger:hover { background: rgba(198,31,31,0.45); }
-  #export-btn, #clear-votes-btn { display: none; }
-  .admin-active #export-btn, .admin-active #clear-votes-btn { display: inline-block; }
+  #export-btn, #clear-votes-btn, #toggle-vote-btn { display: none; }
+  .admin-active #export-btn,
+  .admin-active #clear-votes-btn,
+  .admin-active #toggle-vote-btn { display: inline-block; }
+
+  #vote-closed-badge {
+    display: none;
+    background: rgba(198,31,31,0.25);
+    color: #FF9999;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.04em;
+  }
+  #vote-closed-badge.visible { display: inline-block; }
 
   #comment-list {
     flex: 1;
@@ -558,22 +583,24 @@
       </div>
       <div id="side-label">● 正方發言</div>
 
-      <div id="stage-info">
-        <div class="info-label">目前階段</div>
-        <div id="stage-name">正方立論</div>
-        <div id="progress-text">階段 1 / 14</div>
-        <div style="height:5px"></div>
-        <div class="info-label">下一階段</div>
-        <div id="next-stage-text">▶ 反方立論（3 分鐘）</div>
-      </div>
+      <div id="left-bottom">
+        <div id="stage-info">
+          <div class="info-label">目前階段</div>
+          <div id="stage-name">正方立論</div>
+          <div id="progress-text">階段 1 / 14</div>
+          <div style="height:5px"></div>
+          <div class="info-label">下一階段</div>
+          <div id="next-stage-text">▶ 反方立論（3 分鐘）</div>
+        </div>
 
-      <div id="stage-nav">
-        <div class="info-label">快速切換</div>
-        <select id="stage-select"></select>
-      </div>
+        <div id="stage-nav">
+          <div class="info-label">快速切換</div>
+          <select id="stage-select"></select>
+        </div>
 
-      <div id="dot-bar">
-        <div id="dots-container"></div>
+        <div id="dot-bar">
+          <div id="dots-container"></div>
+        </div>
       </div>
     </div>
 
@@ -585,6 +612,8 @@
         <div class="section-header">
           <span class="section-title">即時投票</span>
           <span class="section-badge" id="total-votes">0 票</span>
+          <span id="vote-closed-badge">已關閉</span>
+          <button class="action-btn" id="toggle-vote-btn">關閉投票</button>
           <button class="action-btn danger" id="clear-votes-btn">清除投票</button>
         </div>
         <div class="vote-row">
@@ -715,6 +744,7 @@ const STAGES = [
   ["討論時間",             60],
   ["正方結辯",           120],
   ["反方結辯",           120],
+  ["觀眾投票",           600],
   ["活動結束",             0],
 ];
 
@@ -726,6 +756,7 @@ const C = {
   cream:  cssVars.getPropertyValue('--cream').trim(),
   coral:  cssVars.getPropertyValue('--coral').trim(),
   orange: cssVars.getPropertyValue('--orange').trim(),
+  sky:    cssVars.getPropertyValue('--sky').trim(),
   ink:    cssVars.getPropertyValue('--ink').trim(),
   warn:   cssVars.getPropertyValue('--warn').trim(),
   alert:  cssVars.getPropertyValue('--alert').trim(),
@@ -802,17 +833,19 @@ function playAlarm() {
 // ══════════════════════════════════════════════════════════════
 function stageRingColor(idx) {
   const name = STAGES[idx ?? stageIndex][0];
-  if (name.includes("討論")) return C.navy;
-  if (name.includes("反方")) return C.orange;
+  if (name.includes("討論"))   return C.navy;
+  if (name.includes("反方"))   return C.orange;
+  if (name.includes("觀眾投票")) return C.sky;
   return C.coral;
 }
 function stageSideLabel(idx) {
   idx = idx ?? stageIndex;
   if (idx >= STAGES.length - 1) return { text: "活動結束", color: C.ink };
   const name = STAGES[idx][0];
-  if (name.includes("討論")) return { text: "● 討論時間", color: C.navy   };
-  if (name.includes("反方")) return { text: "● 反方發言", color: C.orange };
-  if (name.includes("正方")) return { text: "● 正方發言", color: C.coral  };
+  if (name.includes("討論"))     return { text: "● 討論時間", color: C.navy   };
+  if (name.includes("反方"))     return { text: "● 反方發言", color: C.orange };
+  if (name.includes("正方"))     return { text: "● 正方發言", color: C.coral  };
+  if (name.includes("觀眾投票")) return { text: "● 觀眾投票中", color: C.sky  };
   return { text: "", color: C.ink };
 }
 function fmt(s) {
@@ -1109,6 +1142,24 @@ function confirmAdmin() {
     adminPwd.select();
   }
 }
+
+// ══════════════════════════════════════════════════════════════
+// VOTE OPEN / CLOSE (admin only)
+// ══════════════════════════════════════════════════════════════
+let votingOpen = true;
+
+db.ref("debate/config/votingOpen").on("value", snap => {
+  votingOpen = snap.val() !== false; // default true if not yet set
+  const btn   = document.getElementById("toggle-vote-btn");
+  const badge = document.getElementById("vote-closed-badge");
+  btn.textContent = votingOpen ? "關閉投票" : "開啟投票";
+  btn.classList.toggle("danger", votingOpen);
+  badge.classList.toggle("visible", !votingOpen);
+});
+
+document.getElementById("toggle-vote-btn").addEventListener("click", () => {
+  db.ref("debate/config/votingOpen").set(!votingOpen);
+});
 
 // ══════════════════════════════════════════════════════════════
 // CLEAR VOTES (admin only)
