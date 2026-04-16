@@ -1115,7 +1115,13 @@ function confirmAdmin() {
 // ══════════════════════════════════════════════════════════════
 document.getElementById("clear-votes-btn").addEventListener("click", () => {
   if (confirm("確定要清除所有投票紀錄嗎？此操作無法復原。")) {
-    db.ref("debate/votes").remove();
+    db.ref("debate/votes").once("value", snap => {
+      const updates = {};
+      snap.forEach(child => { updates[child.key] = null; });
+      if (Object.keys(updates).length > 0) {
+        db.ref("debate/votes").update(updates);
+      }
+    });
   }
 });
 
