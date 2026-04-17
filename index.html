@@ -141,15 +141,53 @@
     margin-top: -4px;
   }
 
-  /* ── Free Debate ── */
-  #fd-secondary {
+  /* ── Free Debate Dual Circles ── */
+  #dual-circles-wrap {
     display: none;
-    font-size: clamp(11px, 1.4vw, 15px);
-    font-weight: 700;
-    color: var(--gray-blue);
-    margin-top: -2px;
-    transition: color 0.3s;
+    flex-direction: row;
+    gap: 10px;
+    width: min(500px, 92%, calc(52vw - 32px));
+    flex-shrink: 1;
+    min-height: 0;
+    align-items: center;
   }
+  .dc-side {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: opacity 0.3s;
+  }
+  .dc-side.inactive { opacity: 0.32; }
+  .dc-side svg { width: 100%; height: auto; overflow: visible; }
+  .dc-track    { fill: none; stroke: var(--track); }
+  .dc-progress { fill: none; stroke-linecap: round;
+                 transition: stroke-dashoffset 0.25s linear, stroke 0.4s; }
+  .dc-time {
+    font-size: 42px;
+    font-weight: 900;
+    fill: var(--ink);
+    dominant-baseline: middle;
+    text-anchor: middle;
+    font-family: "SF Mono", "Consolas", "Courier New", monospace;
+    letter-spacing: -1px;
+    transition: fill 0.3s;
+  }
+  .dc-name {
+    font-size: clamp(12px, 1.6vw, 16px);
+    font-weight: 800;
+  }
+  .dc-name-pro { color: var(--coral);  }
+  .dc-name-con { color: var(--orange); }
+  .dc-status {
+    font-size: clamp(10px, 1.2vw, 13px);
+    font-weight: 600;
+    color: var(--gray-blue);
+  }
+  #dc-pro.speaking .dc-status { color: var(--coral);  font-weight: 700; }
+  #dc-con.speaking .dc-status { color: var(--orange); font-weight: 700; }
 
   #switch-side-btn {
     display: none;
@@ -616,8 +654,32 @@
           <text id="overtime-hint" x="200" y="255">超時中</text>
         </svg>
       </div>
+      <!-- Dual circles for 自由辯論 (hidden by default) -->
+      <div id="dual-circles-wrap">
+        <div class="dc-side" id="dc-pro">
+          <svg viewBox="0 0 200 200">
+            <circle class="dc-track"    cx="100" cy="100" r="80" stroke-width="16"/>
+            <circle class="dc-progress" cx="100" cy="100" r="80" stroke-width="16"
+                    stroke-dasharray="502.7" stroke-dashoffset="0"
+                    transform="rotate(-90 100 100)" id="dc-pro-arc"/>
+            <text class="dc-time" id="dc-pro-time" x="100" y="106">3:00</text>
+          </svg>
+          <div class="dc-name dc-name-pro">正方</div>
+          <div class="dc-status" id="dc-pro-status">待機</div>
+        </div>
+        <div class="dc-side" id="dc-con">
+          <svg viewBox="0 0 200 200">
+            <circle class="dc-track"    cx="100" cy="100" r="80" stroke-width="16"/>
+            <circle class="dc-progress" cx="100" cy="100" r="80" stroke-width="16"
+                    stroke-dasharray="502.7" stroke-dashoffset="0"
+                    transform="rotate(-90 100 100)" id="dc-con-arc"/>
+            <text class="dc-time" id="dc-con-time" x="100" y="106">3:00</text>
+          </svg>
+          <div class="dc-name dc-name-con">反方</div>
+          <div class="dc-status" id="dc-con-status">待機</div>
+        </div>
+      </div>
       <div id="side-label">● 正方發言</div>
-      <div id="fd-secondary"></div>
       <button id="switch-side-btn">切換 → 換反方發言</button>
 
       <div id="left-bottom">
@@ -915,51 +977,57 @@ function isFreeDebate() {
   return STAGES[stageIndex][0] === "自由辯論";
 }
 
+const DC_CIRC = 2 * Math.PI * 80; // ≈ 502.655
+
 function showDualTimer() {
-  document.getElementById("fd-secondary").style.display    = "block";
-  document.getElementById("switch-side-btn").style.display = "block";
+  document.getElementById("svg-wrapper").style.display       = "none";
+  document.getElementById("side-label").style.display        = "none";
+  document.getElementById("dual-circles-wrap").style.display = "flex";
+  document.getElementById("switch-side-btn").style.display   = "block";
   updateDualTimerDisplay();
 }
 
 function hideDualTimer() {
-  document.getElementById("fd-secondary").style.display    = "none";
-  document.getElementById("switch-side-btn").style.display = "none";
+  document.getElementById("svg-wrapper").style.display       = "";
+  document.getElementById("side-label").style.display        = "";
+  document.getElementById("dual-circles-wrap").style.display = "none";
+  document.getElementById("switch-side-btn").style.display   = "none";
 }
 
 function updateDualTimerDisplay() {
-  const activeTime = fdActiveSide === "con" ? fdConTime
-                   : fdActiveSide === "pro" ? fdProTime
-                   : STAGES[stageIndex][1];
-  const total      = STAGES[stageIndex][1];
-  const switchBtn  = document.getElementById("switch-side-btn");
-  const secEl      = document.getElementById("fd-secondary");
+  const total     = STAGES[stageIndex][1];
+  const switchBtn = document.getElementById("switch-side-btn");
 
-  // ── Main circle (same as regular timer) ──────────────────────
-  timeText.textContent = fmt(activeTime);
-  overtimeHint.classList.remove("visible");
-  arcProgress.style.strokeDashoffset = CIRCUMFERENCE * (1 - (total > 0 ? activeTime / total : 0));
-  const baseColor = fdActiveSide === "con" ? C.orange : C.coral;
-  const isEmpty   = activeTime === 0 && fdActiveSide !== null;
-  const isLow     = activeTime <= 30 && activeTime > 0;
-  arcProgress.style.stroke = isEmpty ? C.alert : isLow ? C.warn : baseColor;
-  timeText.style.fill      = isEmpty ? C.alert : isLow ? C.warn : C.ink;
-
-  // ── Side label ────────────────────────────────────────────────
-  const sl = stageSideLabel();
-  sideLabel.textContent = sl.text; sideLabel.style.color = sl.color;
-
-  // ── Secondary: other side's remaining time ────────────────────
-  if (fdActiveSide) {
-    const otherName = fdActiveSide === "con" ? "正方" : "反方";
-    const otherTime = fdActiveSide === "con" ? fdProTime : fdConTime;
-    secEl.textContent  = `${otherName}剩餘 ${fmt(otherTime)}`;
-    secEl.style.color  = fdActiveSide === "con" ? C.coral : C.orange;
-  } else {
-    secEl.textContent = "各 3 分鐘";
-    secEl.style.color = "";
+  function renderCircle(arc, timeEl, card, statusEl, t, isActive, color) {
+    const isEmpty = t === 0 && fdActiveSide !== null;
+    const isLow   = t <= 30 && t > 0;
+    timeEl.textContent            = fmt(t);
+    arc.style.strokeDashoffset    = DC_CIRC * (1 - (total > 0 ? t / total : 0));
+    arc.style.stroke              = isEmpty ? C.alert : isLow ? C.warn : color;
+    timeEl.style.fill             = isEmpty ? C.alert : isLow ? C.warn : C.ink;
+    card.className = "dc-side"
+      + (isActive && isRunning ? " speaking" : "")
+      + (!isActive && fdActiveSide !== null && t > 0 ? " inactive" : "");
+    statusEl.textContent = t === 0 && fdActiveSide !== null ? "時間結束"
+      : (isActive && isRunning ? "▶ 發言中" : "⏸ 待機");
   }
 
-  // ── Switch button ─────────────────────────────────────────────
+  renderCircle(
+    document.getElementById("dc-pro-arc"),
+    document.getElementById("dc-pro-time"),
+    document.getElementById("dc-pro"),
+    document.getElementById("dc-pro-status"),
+    fdProTime, fdActiveSide === "pro", C.coral
+  );
+  renderCircle(
+    document.getElementById("dc-con-arc"),
+    document.getElementById("dc-con-time"),
+    document.getElementById("dc-con"),
+    document.getElementById("dc-con-status"),
+    fdConTime, fdActiveSide === "con", C.orange
+  );
+
+  // Switch button
   if (fdProTime === 0 && fdConTime === 0) {
     switchBtn.textContent = "自由辯論結束";
     switchBtn.disabled = true;
