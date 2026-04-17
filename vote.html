@@ -381,6 +381,30 @@
   .feed-text { font-size: 14px; color: var(--cream); line-height: 1.5; word-break: break-word; }
   #feed-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 32px 0; }
 
+  .like-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 20px;
+    color: rgba(245,239,224,0.45);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 3px 9px;
+    font-family: inherit;
+    box-shadow: none;
+    height: auto;
+    line-height: 1.4;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+  }
+  .like-btn.liked {
+    background: rgba(244,196,48,0.15);
+    border-color: var(--yellow);
+    color: var(--yellow);
+  }
+  .like-btn:active { transform: scale(0.94); }
+
   /* ── Change nickname modal ── */
   #nick-modal {
     display: none;
@@ -623,6 +647,18 @@ function applyNewNick() {
 // ══════════════════════════════════════════════════════════════
 // FIREBASE LISTENERS
 // ══════════════════════════════════════════════════════════════
+let commentsCache = [];
+let likesCache    = {};
+
+function toggleLike(commentId) {
+  const alreadyLiked = !!(likesCache[commentId] || {})[deviceId];
+  if (alreadyLiked) {
+    db.ref(`debate/likes/${commentId}/${deviceId}`).remove();
+  } else {
+    db.ref(`debate/likes/${commentId}/${deviceId}`).set(true);
+  }
+}
+
 function initFirebaseListeners() {
   // Listen to voting open/close status
   db.ref("debate/config/votingOpen").on("value", snap => {
@@ -657,12 +693,17 @@ function initFirebaseListeners() {
 
   // Listen to comments
   db.ref("debate/comments").orderByChild("createdAt").on("value", snap => {
-    const list = [];
+    commentsCache = [];
     snap.forEach(child => {
       const c = child.val();
-      if (!c.deleted) list.push({ id: child.key, ...c });
+      if (!c.deleted) commentsCache.push({ id: child.key, ...c });
     });
-    renderFeed(list);
+    renderFeed(commentsCache);
+  });
+
+  db.ref("debate/likes").on("value", snap => {
+    likesCache = snap.val() || {};
+    renderFeed(commentsCache);
   });
 }
 
@@ -780,7 +821,18 @@ function renderFeed(list) {
     const text = document.createElement("div"); text.className = "feed-text";
     text.textContent = c.text;
 
-    item.append(meta, text);
+    const likeCount = Object.keys(likesCache[c.id] || {}).length;
+    const liked     = !!(likesCache[c.id] || {})[deviceId];
+    const likeBtn   = document.createElement("button");
+    likeBtn.className   = "like-btn" + (liked ? " liked" : "");
+    likeBtn.textContent = likeCount > 0 ? `👍 ${likeCount}` : "👍";
+    likeBtn.addEventListener("click", () => toggleLike(c.id));
+
+    const likeRow = document.createElement("div");
+    likeRow.style.cssText = "display:flex; justify-content:flex-end; margin-top:6px;";
+    likeRow.appendChild(likeBtn);
+
+    item.append(meta, text, likeRow);
     feedList.appendChild(item);
   });
 }

@@ -141,6 +141,82 @@
     margin-top: -4px;
   }
 
+  /* ── Free Debate Dual Timer ── */
+  #dual-timer-wrap {
+    display: none;
+    flex-direction: row;
+    gap: 14px;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+  .dt-card {
+    flex: 1;
+    border-radius: 18px;
+    padding: 16px 10px;
+    text-align: center;
+    border: 3px solid rgba(26,26,26,0.15);
+    background: rgba(255,255,255,0.45);
+    transition: background 0.3s, border-color 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .dt-card.active-pro {
+    background: rgba(232,90,124,0.1);
+    border-color: var(--coral);
+  }
+  .dt-card.active-con {
+    background: rgba(232,116,44,0.1);
+    border-color: var(--orange);
+  }
+  .dt-card.exhausted { opacity: 0.35; }
+  .dt-time {
+    font-size: clamp(28px, 4.5vw, 50px);
+    font-weight: 900;
+    font-family: "SF Mono", "Consolas", monospace;
+    color: var(--ink);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .dt-card.active-pro .dt-time { color: var(--coral); }
+  .dt-card.active-con .dt-time { color: var(--orange); }
+  .dt-card.exhausted  .dt-time { color: var(--gray-blue); }
+  .dt-name {
+    font-size: clamp(13px, 1.8vw, 18px);
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .dt-status {
+    font-size: clamp(10px, 1.2vw, 13px);
+    font-weight: 600;
+    color: var(--gray-blue);
+  }
+  .dt-card.active-pro .dt-status { color: var(--coral); }
+  .dt-card.active-con .dt-status { color: var(--orange); }
+
+  #switch-side-btn {
+    display: none;
+    width: 100%;
+    height: 46px;
+    background: var(--navy);
+    color: var(--cream);
+    font-size: 14px;
+    font-weight: 800;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: background 0.15s, transform 0.1s;
+    flex-shrink: 0;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+  }
+  #switch-side-btn:hover:not(:disabled) { background: var(--gray-blue); transform: translateY(-1px); }
+  #switch-side-btn:disabled { background: var(--gray-blue); opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
   /* Stage info */
   #stage-info {
     width: 100%;
@@ -418,6 +494,12 @@
     line-height: 1.5;
     word-break: break-word;
   }
+  .comment-likes {
+    font-size: 11px;
+    color: rgba(245,239,224,0.45);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
   #no-comments {
     text-align: center;
     color: rgba(245,239,224,0.25);
@@ -583,6 +665,21 @@
       </div>
       <div id="side-label">● 正方發言</div>
 
+      <!-- Dual timer (自由辯論 only) - hidden by default -->
+      <div id="dual-timer-wrap">
+        <div class="dt-card" id="dt-pro">
+          <div class="dt-time" id="dt-pro-time">3:00</div>
+          <div class="dt-name">正方</div>
+          <div class="dt-status" id="dt-pro-status">待機中</div>
+        </div>
+        <div class="dt-card" id="dt-con">
+          <div class="dt-time" id="dt-con-time">3:00</div>
+          <div class="dt-name">反方</div>
+          <div class="dt-status" id="dt-con-status">待機中</div>
+        </div>
+      </div>
+      <button id="switch-side-btn">切換 → 換反方發言</button>
+
       <div id="left-bottom">
         <div id="stage-info">
           <div class="info-label">目前階段</div>
@@ -739,8 +836,7 @@ const STAGES = [
   ["正方申論",            180],
   ["反方申論",            180],
   ["討論時間",             60],
-  ["自由辯論（正方）",    180],
-  ["自由辯論（反方）",    180],
+  ["自由辯論",            180],
   ["討論時間",             60],
   ["正方結辯",           120],
   ["反方結辯",           120],
@@ -777,6 +873,14 @@ let runBaseIsOvertime = false;
 let runBaseOvertime   = 0;
 let lastDisplayedSec  = -1;
 let alarmPlayed       = false;
+
+// ── Free Debate state ─────────────────────────────────────────
+let fdProTime      = 180;
+let fdConTime      = 180;
+let fdActiveSide   = null;   // "pro" | "con" | null
+let fdRunBase      = 180;    // baseline time of active side when run started
+let fdAlarmPlayed  = false;
+let fdLastSec      = -1;
 
 // ── DOM refs ──────────────────────────────────────────────────
 const arcProgress   = document.getElementById("arc-progress");
@@ -833,8 +937,9 @@ function playAlarm() {
 // ══════════════════════════════════════════════════════════════
 function stageRingColor(idx) {
   const name = STAGES[idx ?? stageIndex][0];
-  if (name.includes("討論"))   return C.navy;
-  if (name.includes("反方"))   return C.orange;
+  if (name === "自由辯論")       return fdActiveSide === "con" ? C.orange : C.coral;
+  if (name.includes("討論"))     return C.navy;
+  if (name.includes("反方"))     return C.orange;
   if (name.includes("觀眾投票")) return C.sky;
   return C.coral;
 }
@@ -842,10 +947,15 @@ function stageSideLabel(idx) {
   idx = idx ?? stageIndex;
   if (idx >= STAGES.length - 1) return { text: "活動結束", color: C.ink };
   const name = STAGES[idx][0];
-  if (name.includes("討論"))     return { text: "● 討論時間", color: C.navy   };
-  if (name.includes("反方"))     return { text: "● 反方發言", color: C.orange };
-  if (name.includes("正方"))     return { text: "● 正方發言", color: C.coral  };
-  if (name.includes("觀眾投票")) return { text: "● 觀眾投票中", color: C.sky  };
+  if (name === "自由辯論") {
+    if (fdActiveSide === "con") return { text: "● 反方發言", color: C.orange };
+    if (fdActiveSide === "pro") return { text: "● 正方發言", color: C.coral  };
+    return { text: "● 自由辯論", color: C.ink };
+  }
+  if (name.includes("討論"))     return { text: "● 討論時間",  color: C.navy   };
+  if (name.includes("反方"))     return { text: "● 反方發言",  color: C.orange };
+  if (name.includes("正方"))     return { text: "● 正方發言",  color: C.coral  };
+  if (name.includes("觀眾投票")) return { text: "● 觀眾投票中", color: C.sky   };
   return { text: "", color: C.ink };
 }
 function fmt(s) {
@@ -861,6 +971,55 @@ function fmtTs(ts) {
   return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 }
 
+function isFreeDebate() {
+  return STAGES[stageIndex][0] === "自由辯論";
+}
+
+function showDualTimer() {
+  document.getElementById("svg-wrapper").style.display      = "none";
+  document.getElementById("side-label").style.display       = "none";
+  document.getElementById("dual-timer-wrap").style.display  = "flex";
+  document.getElementById("switch-side-btn").style.display  = "block";
+  updateDualTimerDisplay();
+}
+
+function hideDualTimer() {
+  document.getElementById("svg-wrapper").style.display      = "";
+  document.getElementById("side-label").style.display       = "";
+  document.getElementById("dual-timer-wrap").style.display  = "none";
+  document.getElementById("switch-side-btn").style.display  = "none";
+}
+
+function updateDualTimerDisplay() {
+  const proCard   = document.getElementById("dt-pro");
+  const conCard   = document.getElementById("dt-con");
+  const proTimeEl = document.getElementById("dt-pro-time");
+  const conTimeEl = document.getElementById("dt-con-time");
+  const proStatus = document.getElementById("dt-pro-status");
+  const conStatus = document.getElementById("dt-con-status");
+  const switchBtn = document.getElementById("switch-side-btn");
+
+  proTimeEl.textContent = fmt(fdProTime);
+  conTimeEl.textContent = fmt(fdConTime);
+
+  proCard.className = "dt-card" + (fdActiveSide === "pro" && fdProTime > 0 ? " active-pro" : "") + (fdProTime === 0 ? " exhausted" : "");
+  conCard.className = "dt-card" + (fdActiveSide === "con" && fdConTime > 0 ? " active-con" : "") + (fdConTime === 0 ? " exhausted" : "");
+
+  proStatus.textContent = fdProTime === 0 ? "時間結束" : (fdActiveSide === "pro" && isRunning ? "▶ 發言中" : "⏸ 待機");
+  conStatus.textContent = fdConTime === 0 ? "時間結束" : (fdActiveSide === "con" && isRunning ? "▶ 發言中" : "⏸ 待機");
+
+  if (fdProTime === 0 && fdConTime === 0) {
+    switchBtn.textContent = "自由辯論結束";
+    switchBtn.disabled = true;
+  } else if (fdActiveSide === "con") {
+    switchBtn.textContent = "切換 → 換正方發言";
+    switchBtn.disabled = fdProTime === 0;
+  } else {
+    switchBtn.textContent = "切換 → 換反方發言";
+    switchBtn.disabled = fdConTime === 0;
+  }
+}
+
 // ══════════════════════════════════════════════════════════════
 // TIMER DISPLAY
 // ══════════════════════════════════════════════════════════════
@@ -869,34 +1028,49 @@ function updateDisplay() {
   stageName.textContent    = STAGES[idx][0];
   progressText.textContent = idx < total ? `階段 ${idx+1} / ${total}` : "活動已結束";
 
-  const sl = stageSideLabel();
-  sideLabel.textContent = sl.text; sideLabel.style.color = sl.color;
+  if (!isFreeDebate()) {
+    const sl = stageSideLabel();
+    sideLabel.textContent = sl.text; sideLabel.style.color = sl.color;
+  }
 
   const ni = idx + 1;
-  nextStageText.textContent = ni < STAGES.length
-    ? (STAGES[ni][1] === 0 ? `▶ ${STAGES[ni][0]}` : `▶ ${STAGES[ni][0]}（${fmtStageTime(STAGES[ni][1])}）`)
-    : "—";
+  if (ni < STAGES.length) {
+    const nn = STAGES[ni][0], nt = STAGES[ni][1];
+    nextStageText.textContent = nn === "自由辯論" ? `▶ ${nn}（各 3 分鐘）`
+      : nt === 0 ? `▶ ${nn}` : `▶ ${nn}（${fmtStageTime(nt)}）`;
+  } else {
+    nextStageText.textContent = "—";
+  }
 
   updateDots(); updateToggleBtn();
 
-  if (isOvertime) {
-    timeText.textContent               = `+${fmt(overtime)}`;
-    timeText.style.fill                = C.alert;
-    arcProgress.style.stroke           = C.alert;
-    arcProgress.style.strokeDashoffset = CIRCUMFERENCE;
-    overtimeHint.classList.add("visible");
-  } else {
-    timeText.textContent = fmt(timeLeft);
-    overtimeHint.classList.remove("visible");
-    arcProgress.style.strokeDashoffset = CIRCUMFERENCE * (1 - (stageTotalTime > 0 ? timeLeft/stageTotalTime : 0));
-    const arcColor  = timeLeft === 0 ? C.alert : timeLeft <= 30 ? C.warn : stageRingColor();
-    const textColor = timeLeft === 0 ? C.alert : timeLeft <= 30 ? C.warn : C.ink;
-    arcProgress.style.stroke = arcColor;
-    timeText.style.fill      = textColor;
+  if (!isFreeDebate()) {
+    if (isOvertime) {
+      timeText.textContent               = `+${fmt(overtime)}`;
+      timeText.style.fill                = C.alert;
+      arcProgress.style.stroke           = C.alert;
+      arcProgress.style.strokeDashoffset = CIRCUMFERENCE;
+      overtimeHint.classList.add("visible");
+    } else {
+      timeText.textContent = fmt(timeLeft);
+      overtimeHint.classList.remove("visible");
+      arcProgress.style.strokeDashoffset = CIRCUMFERENCE * (1 - (stageTotalTime > 0 ? timeLeft/stageTotalTime : 0));
+      const arcColor  = timeLeft === 0 ? C.alert : timeLeft <= 30 ? C.warn : stageRingColor();
+      const textColor = timeLeft === 0 ? C.alert : timeLeft <= 30 ? C.warn : C.ink;
+      arcProgress.style.stroke = arcColor;
+      timeText.style.fill      = textColor;
+    }
   }
 }
 
 function updateToggleBtn() {
+  if (isFreeDebate()) {
+    const done = fdProTime === 0 && fdConTime === 0;
+    btnToggle.textContent = done ? "自由辯論結束" : isRunning ? "⏸ 暫停" : "▶ 開始";
+    btnToggle.disabled    = done;
+    btnToggle.classList.toggle("running", isRunning && !done);
+    return;
+  }
   const isEnd = STAGES[stageIndex][1] === 0;
   btnToggle.textContent = isEnd ? "活動結束" : isRunning ? "⏸ 暫停" : "▶ 開始";
   btnToggle.disabled    = isEnd;
@@ -925,9 +1099,25 @@ function updateDots() {
 // ══════════════════════════════════════════════════════════════
 function tick() {
   if (!isRunning) return;
+
+  if (isFreeDebate()) {
+    const elapsed = Math.floor((Date.now() - runStart) / 1000);
+    const remaining = Math.max(0, fdRunBase - elapsed);
+    if (fdActiveSide === "pro") fdProTime = remaining;
+    else if (fdActiveSide === "con") fdConTime = remaining;
+    if (remaining === 0 && !fdAlarmPlayed) {
+      playAlarm(); fdAlarmPlayed = true;
+      isRunning = false;
+      clearInterval(tickInterval); tickInterval = null;
+    }
+    if (remaining > 0 && remaining <= 10 && remaining !== fdLastSec) playTick();
+    fdLastSec = remaining;
+    updateDualTimerDisplay(); updateToggleBtn();
+    return;
+  }
+
   const elapsed = Math.floor((Date.now() - runStart) / 1000);
   let currentSec;
-
   if (runBaseIsOvertime) {
     overtime = runBaseOvertime + elapsed; timeLeft = 0; isOvertime = true;
     currentSec = -(runBaseOvertime + elapsed);
@@ -940,7 +1130,6 @@ function tick() {
       timeLeft = 0; isOvertime = true; overtime = -remaining; currentSec = remaining;
     }
   }
-
   if (currentSec !== lastDisplayedSec) {
     if (currentSec > 0 && currentSec <= 10) playTick();
     lastDisplayedSec = currentSec;
@@ -949,6 +1138,24 @@ function tick() {
 }
 
 function toggleTimer() {
+  if (isFreeDebate()) {
+    const done = fdProTime === 0 && fdConTime === 0;
+    if (done) return;
+    ensureAudio();
+    isRunning = !isRunning;
+    if (isRunning) {
+      if (fdActiveSide === null) fdActiveSide = "pro";
+      fdRunBase = fdActiveSide === "pro" ? fdProTime : fdConTime;
+      fdAlarmPlayed = false;
+      fdLastSec = fdRunBase;
+      runStart = Date.now();
+      tickInterval = setInterval(tick, 200);
+    } else {
+      clearInterval(tickInterval); tickInterval = null;
+    }
+    updateToggleBtn(); updateDualTimerDisplay();
+    return;
+  }
   if (STAGES[stageIndex][1] === 0) return;
   ensureAudio();
   isRunning = !isRunning;
@@ -967,11 +1174,29 @@ function toggleTimer() {
 function resetTimer() {
   clearInterval(tickInterval); tickInterval = null;
   isRunning = false; overtime = 0; isOvertime = false;
+  if (isFreeDebate()) {
+    fdProTime = STAGES[stageIndex][1];
+    fdConTime = STAGES[stageIndex][1];
+    fdActiveSide = null; fdAlarmPlayed = false; fdLastSec = -1;
+    updateDualTimerDisplay(); updateToggleBtn();
+    return;
+  }
   stageTotalTime = STAGES[stageIndex][1]; timeLeft = stageTotalTime;
   updateDisplay();
 }
 
 function addTime(seconds) {
+  if (isFreeDebate()) {
+    if (!fdActiveSide) return;
+    if (fdActiveSide === "pro") fdProTime = Math.max(0, fdProTime + seconds);
+    else fdConTime = Math.max(0, fdConTime + seconds);
+    if (isRunning) {
+      fdRunBase = fdActiveSide === "pro" ? fdProTime : fdConTime;
+      runStart = Date.now();
+    }
+    updateDualTimerDisplay();
+    return;
+  }
   if (seconds > 0) {
     if (isOvertime) {
       if (overtime >= seconds) { overtime -= seconds; }
@@ -995,7 +1220,15 @@ function loadStage() {
   isRunning = false; overtime = 0; isOvertime = false;
   stageTotalTime = STAGES[stageIndex][1]; timeLeft = stageTotalTime;
   stageSelect.value = stageIndex;
-  arcProgress.style.stroke = stageRingColor();
+  if (isFreeDebate()) {
+    fdProTime = STAGES[stageIndex][1];
+    fdConTime = STAGES[stageIndex][1];
+    fdActiveSide = null; fdAlarmPlayed = false; fdLastSec = -1;
+    showDualTimer();
+  } else {
+    hideDualTimer();
+    arcProgress.style.stroke = stageRingColor();
+  }
   updateDisplay();
 }
 
@@ -1047,14 +1280,21 @@ db.ref("debate/votes").on("value", snap => {
 // FIREBASE: COMMENTS
 // ══════════════════════════════════════════════════════════════
 let isAdminMode = false;
+let commentsCache = [];
+let likesCache    = {};
 
 db.ref("debate/comments").orderByChild("createdAt").on("value", snap => {
-  const list = [];
+  commentsCache = [];
   snap.forEach(child => {
     const c = child.val();
-    if (!c.deleted) list.push({ id: child.key, ...c });
+    if (!c.deleted) commentsCache.push({ id: child.key, ...c });
   });
-  renderComments(list);
+  renderComments(commentsCache);
+});
+
+db.ref("debate/likes").on("value", snap => {
+  likesCache = snap.val() || {};
+  renderComments(commentsCache);
 });
 
 function renderComments(list) {
@@ -1086,7 +1326,11 @@ function renderComments(list) {
         db.ref(`debate/comments/${c.id}`).update({ deleted: true });
     });
 
-    right.append(time, del);
+    const likeCount = Object.keys(likesCache[c.id] || {}).length;
+    const likeEl    = document.createElement("span");
+    likeEl.className   = "comment-likes";
+    likeEl.textContent = likeCount > 0 ? `👍 ${likeCount}` : "";
+    right.append(likeEl, time, del);
     meta.append(nick, right);
 
     const text = document.createElement("div"); text.className = "comment-text";
@@ -1213,6 +1457,21 @@ document.getElementById("qr-close").addEventListener("click", () =>
 // ══════════════════════════════════════════════════════════════
 // BUTTONS & KEYBOARD
 // ══════════════════════════════════════════════════════════════
+document.getElementById("switch-side-btn").addEventListener("click", () => {
+  if (!isFreeDebate()) return;
+  const newSide = fdActiveSide === "con" ? "pro" : "con";
+  const newTime = newSide === "pro" ? fdProTime : fdConTime;
+  if (newTime === 0) return;
+  fdActiveSide = newSide;
+  fdAlarmPlayed = false;
+  if (isRunning) {
+    fdRunBase = newTime;
+    runStart  = Date.now();
+    fdLastSec = newTime;
+  }
+  updateDualTimerDisplay();
+});
+
 document.getElementById("btn-prev").addEventListener("click",   prevStage);
 document.getElementById("btn-toggle").addEventListener("click", toggleTimer);
 document.getElementById("btn-next").addEventListener("click",   nextStage);
