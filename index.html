@@ -1351,10 +1351,13 @@ function renderComments(list) {
     });
 
     const likeCount = Object.keys(likesCache[c.id] || {}).length;
-    const likeEl    = document.createElement("span");
-    likeEl.className   = "comment-likes";
-    likeEl.textContent = likeCount > 0 ? `👍 ${likeCount}` : "";
-    right.append(likeEl, time, del);
+    if (likeCount > 0) {
+      const likeEl = document.createElement("span");
+      likeEl.className   = "comment-likes";
+      likeEl.textContent = `👍 ${likeCount}`;
+      right.append(likeEl);
+    }
+    right.append(time, del);
     meta.append(nick, right);
 
     const text = document.createElement("div"); text.className = "comment-text";
