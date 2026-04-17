@@ -141,62 +141,15 @@
     margin-top: -4px;
   }
 
-  /* ── Free Debate Dual Timer ── */
-  #dual-timer-wrap {
+  /* ── Free Debate ── */
+  #fd-secondary {
     display: none;
-    flex-direction: row;
-    gap: 14px;
-    width: 100%;
-    flex: 1;
-    min-height: 0;
-    align-items: stretch;
-  }
-  .dt-card {
-    flex: 1;
-    border-radius: 18px;
-    padding: 16px 10px;
-    text-align: center;
-    border: 3px solid rgba(26,26,26,0.15);
-    background: rgba(255,255,255,0.45);
-    transition: background 0.3s, border-color 0.3s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-  }
-  .dt-card.active-pro {
-    background: rgba(232,90,124,0.1);
-    border-color: var(--coral);
-  }
-  .dt-card.active-con {
-    background: rgba(232,116,44,0.1);
-    border-color: var(--orange);
-  }
-  .dt-card.exhausted { opacity: 0.35; }
-  .dt-time {
-    font-size: clamp(28px, 4.5vw, 50px);
-    font-weight: 900;
-    font-family: "SF Mono", "Consolas", monospace;
-    color: var(--ink);
-    letter-spacing: -1px;
-    line-height: 1;
-  }
-  .dt-card.active-pro .dt-time { color: var(--coral); }
-  .dt-card.active-con .dt-time { color: var(--orange); }
-  .dt-card.exhausted  .dt-time { color: var(--gray-blue); }
-  .dt-name {
-    font-size: clamp(13px, 1.8vw, 18px);
-    font-weight: 800;
-    color: var(--ink);
-  }
-  .dt-status {
-    font-size: clamp(10px, 1.2vw, 13px);
-    font-weight: 600;
+    font-size: clamp(11px, 1.4vw, 15px);
+    font-weight: 700;
     color: var(--gray-blue);
+    margin-top: -2px;
+    transition: color 0.3s;
   }
-  .dt-card.active-pro .dt-status { color: var(--coral); }
-  .dt-card.active-con .dt-status { color: var(--orange); }
 
   #switch-side-btn {
     display: none;
@@ -664,20 +617,7 @@
         </svg>
       </div>
       <div id="side-label">● 正方發言</div>
-
-      <!-- Dual timer (自由辯論 only) - hidden by default -->
-      <div id="dual-timer-wrap">
-        <div class="dt-card" id="dt-pro">
-          <div class="dt-time" id="dt-pro-time">3:00</div>
-          <div class="dt-name">正方</div>
-          <div class="dt-status" id="dt-pro-status">待機中</div>
-        </div>
-        <div class="dt-card" id="dt-con">
-          <div class="dt-time" id="dt-con-time">3:00</div>
-          <div class="dt-name">反方</div>
-          <div class="dt-status" id="dt-con-status">待機中</div>
-        </div>
-      </div>
+      <div id="fd-secondary"></div>
       <button id="switch-side-btn">切換 → 換反方發言</button>
 
       <div id="left-bottom">
@@ -976,38 +916,50 @@ function isFreeDebate() {
 }
 
 function showDualTimer() {
-  document.getElementById("svg-wrapper").style.display      = "none";
-  document.getElementById("side-label").style.display       = "none";
-  document.getElementById("dual-timer-wrap").style.display  = "flex";
-  document.getElementById("switch-side-btn").style.display  = "block";
+  document.getElementById("fd-secondary").style.display    = "block";
+  document.getElementById("switch-side-btn").style.display = "block";
   updateDualTimerDisplay();
 }
 
 function hideDualTimer() {
-  document.getElementById("svg-wrapper").style.display      = "";
-  document.getElementById("side-label").style.display       = "";
-  document.getElementById("dual-timer-wrap").style.display  = "none";
-  document.getElementById("switch-side-btn").style.display  = "none";
+  document.getElementById("fd-secondary").style.display    = "none";
+  document.getElementById("switch-side-btn").style.display = "none";
 }
 
 function updateDualTimerDisplay() {
-  const proCard   = document.getElementById("dt-pro");
-  const conCard   = document.getElementById("dt-con");
-  const proTimeEl = document.getElementById("dt-pro-time");
-  const conTimeEl = document.getElementById("dt-con-time");
-  const proStatus = document.getElementById("dt-pro-status");
-  const conStatus = document.getElementById("dt-con-status");
-  const switchBtn = document.getElementById("switch-side-btn");
+  const activeTime = fdActiveSide === "con" ? fdConTime
+                   : fdActiveSide === "pro" ? fdProTime
+                   : STAGES[stageIndex][1];
+  const total      = STAGES[stageIndex][1];
+  const switchBtn  = document.getElementById("switch-side-btn");
+  const secEl      = document.getElementById("fd-secondary");
 
-  proTimeEl.textContent = fmt(fdProTime);
-  conTimeEl.textContent = fmt(fdConTime);
+  // ── Main circle (same as regular timer) ──────────────────────
+  timeText.textContent = fmt(activeTime);
+  overtimeHint.classList.remove("visible");
+  arcProgress.style.strokeDashoffset = CIRCUMFERENCE * (1 - (total > 0 ? activeTime / total : 0));
+  const baseColor = fdActiveSide === "con" ? C.orange : C.coral;
+  const isEmpty   = activeTime === 0 && fdActiveSide !== null;
+  const isLow     = activeTime <= 30 && activeTime > 0;
+  arcProgress.style.stroke = isEmpty ? C.alert : isLow ? C.warn : baseColor;
+  timeText.style.fill      = isEmpty ? C.alert : isLow ? C.warn : C.ink;
 
-  proCard.className = "dt-card" + (fdActiveSide === "pro" && fdProTime > 0 ? " active-pro" : "") + (fdProTime === 0 ? " exhausted" : "");
-  conCard.className = "dt-card" + (fdActiveSide === "con" && fdConTime > 0 ? " active-con" : "") + (fdConTime === 0 ? " exhausted" : "");
+  // ── Side label ────────────────────────────────────────────────
+  const sl = stageSideLabel();
+  sideLabel.textContent = sl.text; sideLabel.style.color = sl.color;
 
-  proStatus.textContent = fdProTime === 0 ? "時間結束" : (fdActiveSide === "pro" && isRunning ? "▶ 發言中" : "⏸ 待機");
-  conStatus.textContent = fdConTime === 0 ? "時間結束" : (fdActiveSide === "con" && isRunning ? "▶ 發言中" : "⏸ 待機");
+  // ── Secondary: other side's remaining time ────────────────────
+  if (fdActiveSide) {
+    const otherName = fdActiveSide === "con" ? "正方" : "反方";
+    const otherTime = fdActiveSide === "con" ? fdProTime : fdConTime;
+    secEl.textContent  = `${otherName}剩餘 ${fmt(otherTime)}`;
+    secEl.style.color  = fdActiveSide === "con" ? C.coral : C.orange;
+  } else {
+    secEl.textContent = "各 3 分鐘";
+    secEl.style.color = "";
+  }
 
+  // ── Switch button ─────────────────────────────────────────────
   if (fdProTime === 0 && fdConTime === 0) {
     switchBtn.textContent = "自由辯論結束";
     switchBtn.disabled = true;
