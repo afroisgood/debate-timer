@@ -1318,7 +1318,21 @@ db.ref("debate/comments").orderByChild("createdAt").on("value", snap => {
 
 db.ref("debate/likes").on("value", snap => {
   likesCache = snap.val() || {};
-  renderComments(commentsCache);
+  // Only patch like badges — no full re-render
+  commentsCache.forEach(c => {
+    const item = commentList.querySelector(`[data-id="${c.id}"]`);
+    if (!item) return;
+    const right = item.querySelector(".comment-right");
+    const old   = right.querySelector(".comment-likes");
+    if (old) old.remove();
+    const n = Object.keys(likesCache[c.id] || {}).length;
+    if (n > 0) {
+      const el = document.createElement("span");
+      el.className   = "comment-likes";
+      el.textContent = `👍 ${n}`;
+      right.insertBefore(el, right.firstChild);
+    }
+  });
 });
 
 function renderComments(list) {
@@ -1335,6 +1349,7 @@ function renderComments(list) {
   list.forEach(c => {
     const item = document.createElement("div");
     item.className = "comment-item " + (c.side === "正方" ? "pro" : c.side === "反方" ? "con" : "");
+    item.dataset.id = c.id;
 
     const meta = document.createElement("div"); meta.className = "comment-meta";
     const nick = document.createElement("span"); nick.className = "comment-nick";
@@ -1423,7 +1438,7 @@ db.ref("debate/config/votingOpen").on("value", snap => {
   votingOpen = snap.val() !== false; // default true if not yet set
   const btn   = document.getElementById("toggle-vote-btn");
   const badge = document.getElementById("vote-closed-badge");
-  btn.textContent = votingOpen ? "關閉投票" : "開啟投票";
+  btn.textContent = votingOpen ? "停止投票" : "開放投票";
   btn.classList.toggle("danger", votingOpen);
   badge.classList.toggle("visible", !votingOpen);
 });
@@ -1534,6 +1549,16 @@ document.addEventListener("keydown", e => {
       else document.exitFullscreen().catch(()=>{});
       break;
   }
+});
+
+// ══════════════════════════════════════════════════════════════
+// FIREBASE CLEANUP  — detach all listeners on page unload
+// ══════════════════════════════════════════════════════════════
+window.addEventListener("beforeunload", () => {
+  db.ref("debate/votes").off();
+  db.ref("debate/comments").off();
+  db.ref("debate/likes").off();
+  db.ref("debate/config/votingOpen").off();
 });
 
 // ══════════════════════════════════════════════════════════════

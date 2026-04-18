@@ -648,16 +648,18 @@ function applyNewNick() {
 // ══════════════════════════════════════════════════════════════
 // FIREBASE LISTENERS
 // ══════════════════════════════════════════════════════════════
-let commentsCache = [];
-let likesCache    = {};
+let commentsCache    = [];
+let likesCache       = {};
+const likingInFlight = new Set(); // prevent double-tap race condition
 
 function toggleLike(commentId) {
+  if (likingInFlight.has(commentId)) return; // already in-flight, ignore
+  likingInFlight.add(commentId);
   const alreadyLiked = !!(likesCache[commentId] || {})[deviceId];
-  if (alreadyLiked) {
-    db.ref(`debate/likes/${commentId}/${deviceId}`).remove();
-  } else {
-    db.ref(`debate/likes/${commentId}/${deviceId}`).set(true);
-  }
+  const ref = db.ref(`debate/likes/${commentId}/${deviceId}`);
+  (alreadyLiked ? ref.remove() : ref.set(true))
+    .catch(() => {}) // silent error
+    .finally(() => likingInFlight.delete(commentId));
 }
 
 function initFirebaseListeners() {
@@ -704,7 +706,18 @@ function initFirebaseListeners() {
 
   db.ref("debate/likes").on("value", snap => {
     likesCache = snap.val() || {};
-    renderFeed(commentsCache);
+    // Only patch like buttons — no full re-render
+    const feedList = document.getElementById("feed-list");
+    commentsCache.forEach(c => {
+      const item    = feedList.querySelector(`[data-id="${c.id}"]`);
+      if (!item) return;
+      const likeBtn = item.querySelector(".like-btn");
+      if (!likeBtn) return;
+      const n     = Object.keys(likesCache[c.id] || {}).length;
+      const liked = !!(likesCache[c.id] || {})[deviceId];
+      likeBtn.textContent = n > 0 ? `👍 ${n}` : "👍";
+      likeBtn.className   = "like-btn" + (liked ? " liked" : "");
+    });
   });
 }
 
@@ -810,7 +823,8 @@ function renderFeed(list) {
   feedList.innerHTML = "";
   list.slice().reverse().forEach(c => {
     const item = document.createElement("div");
-    item.className = "feed-item " + (c.side === "正方" ? "pro" : c.side === "反方" ? "con" : "");
+    item.className  = "feed-item " + (c.side === "正方" ? "pro" : c.side === "反方" ? "con" : "");
+    item.dataset.id = c.id;
 
     const meta = document.createElement("div"); meta.className = "feed-meta";
     const nick = document.createElement("span"); nick.className = "feed-nick";
@@ -854,6 +868,17 @@ function showToast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2000);
 }
+
+// ══════════════════════════════════════════════════════════════
+// FIREBASE CLEANUP  — detach all listeners on page unload
+// ══════════════════════════════════════════════════════════════
+window.addEventListener("beforeunload", () => {
+  db.ref("debate/config/votingOpen").off();
+  db.ref(`debate/votes/${deviceId}`).off();
+  db.ref("debate/votes").off();
+  db.ref("debate/comments").off();
+  db.ref("debate/likes").off();
+});
 </script>
 </body>
 </html>
