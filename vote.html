@@ -406,6 +406,101 @@
   .like-btn:hover:not(.liked) { background: rgba(255,255,255,0.22); }
   .like-btn:active { transform: scale(0.93); }
 
+  /* ── Topic Vote Section (vote.html) ── */
+  #topic-vote-section {
+    display: none;
+    flex-direction: column;
+    padding-bottom: 32px;
+  }
+  #tv-instruction {
+    font-size: 14px;
+    color: rgba(245,239,224,0.75);
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+  #tv-my-status {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--yellow);
+  }
+  #tv-my-status span { font-size: 18px; }
+  #tv-cards-list { display: flex; flex-direction: column; gap: 8px; padding: 4px 18px 0; }
+
+  .tv-card {
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 13px 14px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tv-card.tv-selected {
+    background: rgba(244,196,48,0.14);
+    border-color: var(--yellow);
+  }
+  .tv-card.tv-full:not(.tv-selected) {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .tv-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 0;
+  }
+  .tv-check {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    color: transparent;
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: all 0.15s;
+  }
+  .tv-card.tv-selected .tv-check {
+    background: var(--yellow);
+    border-color: var(--yellow);
+    color: var(--ink);
+  }
+  .tv-num {
+    font-size: 12px; font-weight: 800;
+    color: rgba(245,239,224,0.45);
+    flex-shrink: 0; padding-top: 2px;
+  }
+  .tv-text {
+    font-size: 14px; font-weight: 700;
+    color: var(--cream); line-height: 1.45; flex: 1;
+  }
+  /* Results bar (hidden until user votes) */
+  .tv-results {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding-left: 30px;
+    margin-top: 8px;
+  }
+  #topic-vote-section.tv-voted .tv-results { display: flex; }
+  .tv-bar-bg {
+    flex: 1; height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px; overflow: hidden;
+  }
+  .tv-bar-fill {
+    height: 100%; background: rgba(245,239,224,0.35);
+    border-radius: 4px;
+    transition: width 0.7s cubic-bezier(.4,0,.2,1);
+    width: 0%;
+  }
+  .tv-card.tv-selected .tv-bar-fill { background: var(--yellow); }
+  .tv-count-text {
+    font-size: 12px; font-weight: 700;
+    color: rgba(245,239,224,0.55);
+    white-space: nowrap; min-width: 32px; text-align: right;
+  }
+
   /* ── Change nickname modal ── */
   #nick-modal {
     display: none;
@@ -535,6 +630,16 @@
     </div>
   </div>
 
+  <!-- Topic Vote Section (下期題目票選 stage) -->
+  <div id="topic-vote-section">
+    <div class="app-section" style="padding-bottom:12px">
+      <div class="section-label">下期題目票選</div>
+      <div id="tv-instruction">選出你最想辯論的下期題目<br>最多可投 <strong>2 票</strong>，可取消後重投</div>
+      <div id="tv-my-status">已選 <span id="tv-my-count">0</span> / 2 票</div>
+    </div>
+    <div id="tv-cards-list"></div>
+  </div>
+
 </div>
 
 <!-- Change nickname modal -->
@@ -572,6 +677,15 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
+const TOPICS = [
+  "花蓮要吸引更多移居者，還是先照顧現有居民？",
+  "花蓮的問題在於資源不足，還是連結不足？",
+  "花蓮適合長期生活，還是適合短期停留？",
+  "花蓮交通應該優先改善對外連結，還是先提升在地交通便利？",
+  "花蓮產業應該開放大型企業進駐，還是維持地方小型經濟體？",
+  "花蓮應該維持慢生活文化，還是追求更現代化的地方發展？",
+];
 
 // ══════════════════════════════════════════════════════════════
 // IDENTITY  (stored in localStorage)
@@ -646,6 +760,94 @@ function applyNewNick() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// TOPIC VOTE
+// ══════════════════════════════════════════════════════════════
+let myTopicVotes        = new Set(); // topic indices this device voted for
+let allTopicCounts      = [0,0,0,0,0,0];
+let tvCardsBuilt        = false;
+let tvListenersStarted  = false;
+
+function buildTopicCards() {
+  if (tvCardsBuilt) return; tvCardsBuilt = true;
+  const list = document.getElementById("tv-cards-list");
+  TOPICS.forEach((topic, i) => {
+    const card = document.createElement("div");
+    card.className = "tv-card"; card.id = `tvcard-${i}`;
+    card.innerHTML = `
+      <div class="tv-card-header">
+        <div class="tv-check">✓</div>
+        <span class="tv-num">${i + 1}.</span>
+        <span class="tv-text">${topic}</span>
+      </div>
+      <div class="tv-results">
+        <div class="tv-bar-bg"><div class="tv-bar-fill" id="tv-bar-${i}"></div></div>
+        <span class="tv-count-text" id="tv-cnt-${i}">0</span>
+      </div>`;
+    card.addEventListener("click", () => handleTopicVote(i));
+    list.appendChild(card);
+  });
+}
+
+function handleTopicVote(idx) {
+  const isSelected = myTopicVotes.has(idx);
+  if (!isSelected && myTopicVotes.size >= 2) {
+    showToast("最多只能投 2 票，請先取消一個");
+    return;
+  }
+  const ref = db.ref(`debate/topicVotes/${deviceId}/${idx}`);
+  isSelected ? ref.remove() : ref.set(true);
+}
+
+function startTopicVoteListeners() {
+  if (tvListenersStarted) return; tvListenersStarted = true;
+
+  // Own votes
+  db.ref(`debate/topicVotes/${deviceId}`).on("value", snap => {
+    myTopicVotes = new Set();
+    const val = snap.val();
+    if (val) Object.keys(val).forEach(k => myTopicVotes.add(parseInt(k)));
+    syncTopicUI();
+  });
+
+  // All votes (for counts)
+  db.ref("debate/topicVotes").on("value", snap => {
+    allTopicCounts = [0,0,0,0,0,0];
+    snap.forEach(dSnap => {
+      dSnap.forEach(tSnap => {
+        const idx = parseInt(tSnap.key);
+        if (!isNaN(idx) && idx < 6) allTopicCounts[idx]++;
+      });
+    });
+    syncTopicCounts();
+  });
+}
+
+function syncTopicUI() {
+  const sec = document.getElementById("topic-vote-section");
+  document.getElementById("tv-my-count").textContent = myTopicVotes.size;
+  if (myTopicVotes.size > 0) sec.classList.add("tv-voted");
+  const full = myTopicVotes.size >= 2;
+  TOPICS.forEach((_, i) => {
+    const card = document.getElementById(`tvcard-${i}`);
+    if (!card) return;
+    const sel = myTopicVotes.has(i);
+    card.classList.toggle("tv-selected", sel);
+    card.classList.toggle("tv-full", full && !sel);
+  });
+}
+
+function syncTopicCounts() {
+  const total = allTopicCounts.reduce((a, b) => a + b, 0);
+  allTopicCounts.forEach((count, i) => {
+    const bar = document.getElementById(`tv-bar-${i}`);
+    const cnt = document.getElementById(`tv-cnt-${i}`);
+    if (!bar) return;
+    bar.style.width = (total > 0 ? Math.round(count / total * 100) : 0) + "%";
+    if (cnt) cnt.textContent = `${count}票`;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
 // FIREBASE LISTENERS
 // ══════════════════════════════════════════════════════════════
 let commentsCache    = [];
@@ -663,6 +865,26 @@ function toggleLike(commentId) {
 }
 
 function initFirebaseListeners() {
+  // Listen to current stage from admin
+  db.ref("debate/config/currentStage").on("value", snap => {
+    const stage    = snap.val();
+    const isTopic  = stage === "下期題目票選";
+    const voteEl   = document.getElementById("vote-section");
+    const cmtEl    = document.getElementById("comment-section");
+    const feedEl   = document.getElementById("feed-section");
+    const topicEl  = document.getElementById("topic-vote-section");
+
+    voteEl.style.display  = isTopic ? "none" : "";
+    cmtEl.style.display   = isTopic ? "none" : "";
+    feedEl.style.display  = isTopic ? "none" : "";
+    topicEl.style.display = isTopic ? "flex" : "none";
+
+    if (isTopic) {
+      buildTopicCards();
+      startTopicVoteListeners();
+    }
+  });
+
   // Listen to voting open/close status
   db.ref("debate/config/votingOpen").on("value", snap => {
     votingAllowed = snap.val() !== false;
@@ -878,6 +1100,9 @@ window.addEventListener("beforeunload", () => {
   db.ref("debate/votes").off();
   db.ref("debate/comments").off();
   db.ref("debate/likes").off();
+  db.ref(`debate/topicVotes/${deviceId}`).off();
+  db.ref("debate/topicVotes").off();
+  db.ref("debate/config/currentStage").off();
 });
 </script>
 </body>

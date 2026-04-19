@@ -503,6 +503,96 @@
     pointer-events: none;
   }
 
+  /* ── Topic Vote Display (index.html full-width) ── */
+  #topic-vote-display {
+    display: none;
+    flex-direction: column;
+    background: var(--cream);
+    padding: 20px 36px 24px;
+    overflow-y: auto;
+    gap: 0;
+  }
+  #main.topic-mode { grid-template-columns: 1fr; }
+  #main.topic-mode #left-panel,
+  #main.topic-mode #right-panel { display: none; }
+  #main.topic-mode #topic-vote-display { display: flex; }
+
+  #tv-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--track);
+    margin-bottom: 4px;
+  }
+  #tv-title {
+    font-size: clamp(16px, 2.2vw, 26px);
+    font-weight: 900;
+    color: var(--ink);
+  }
+  #tv-total {
+    font-size: clamp(12px, 1.4vw, 16px);
+    font-weight: 700;
+    color: var(--gray-blue);
+  }
+  .tv-opt {
+    padding: 13px 0;
+    border-bottom: 1px solid var(--track);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .tv-opt:last-child { border-bottom: none; }
+  .tv-opt-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .tv-opt-num {
+    font-size: clamp(12px, 1.3vw, 15px);
+    font-weight: 900;
+    color: var(--gray-blue);
+    min-width: 22px;
+    flex-shrink: 0;
+    padding-top: 1px;
+  }
+  .tv-opt-text {
+    font-size: clamp(13px, 1.5vw, 18px);
+    font-weight: 700;
+    color: var(--ink);
+    flex: 1;
+    line-height: 1.4;
+  }
+  .tv-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-left: 32px;
+  }
+  .tv-bar-bg {
+    flex: 1;
+    height: 22px;
+    background: rgba(15,45,87,0.08);
+    border-radius: 11px;
+    overflow: hidden;
+  }
+  .tv-bar-fill {
+    height: 100%;
+    background: var(--navy);
+    border-radius: 11px;
+    transition: width 0.8s cubic-bezier(.4,0,.2,1);
+    width: 0%;
+  }
+  .tv-opt.tv-leading .tv-bar-fill { background: var(--coral); }
+  .tv-votes-text {
+    font-size: clamp(11px, 1.2vw, 14px);
+    font-weight: 700;
+    color: var(--ink);
+    min-width: 80px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
   /* ── Button Bar ─────────────────────────────────────────────────────── */
   #btn-bar {
     background: var(--navy);
@@ -755,6 +845,15 @@
       </div>
 
     </div>
+
+    <!-- Topic Vote Display (下期題目票選 stage) — full width -->
+    <div id="topic-vote-display">
+      <div id="tv-header">
+        <span id="tv-title">📊 下期題目票選</span>
+        <span id="tv-total">共 0 票</span>
+      </div>
+      <div id="tv-options-list"></div>
+    </div>
   </div>
 
   <!-- Button Bar -->
@@ -847,7 +946,17 @@ const STAGES = [
   ["正方結辯",           120],
   ["反方結辯",           120],
   ["觀眾投票",           600],
+  ["下期題目票選",          0],
   ["活動結束",             0],
+];
+
+const TOPICS = [
+  "花蓮要吸引更多移居者，還是先照顧現有居民？",
+  "花蓮的問題在於資源不足，還是連結不足？",
+  "花蓮適合長期生活，還是適合短期停留？",
+  "花蓮交通應該優先改善對外連結，還是先提升在地交通便利？",
+  "花蓮產業應該開放大型企業進駐，還是維持地方小型經濟體？",
+  "花蓮應該維持慢生活文化，還是追求更現代化的地方發展？",
 ];
 
 const CIRCUMFERENCE = 2 * Math.PI * 168;
@@ -981,6 +1090,58 @@ function isFreeDebate() {
   return STAGES[stageIndex][0] === "自由辯論";
 }
 
+function isTopicVote() {
+  return STAGES[stageIndex][0] === "下期題目票選";
+}
+
+// ── Build topic options list (called once) ────────────────────
+let tvBuilt = false;
+function buildTopicDisplay() {
+  if (tvBuilt) return; tvBuilt = true;
+  const list = document.getElementById("tv-options-list");
+  TOPICS.forEach((topic, i) => {
+    const opt = document.createElement("div");
+    opt.className = "tv-opt"; opt.id = `tv-opt-${i}`;
+    opt.innerHTML = `
+      <div class="tv-opt-row">
+        <span class="tv-opt-num">${i + 1}.</span>
+        <span class="tv-opt-text">${topic}</span>
+      </div>
+      <div class="tv-bar-row">
+        <div class="tv-bar-bg"><div class="tv-bar-fill" id="tv-bar-${i}"></div></div>
+        <span class="tv-votes-text" id="tv-votes-${i}">0 票</span>
+      </div>`;
+    list.appendChild(opt);
+  });
+}
+
+function showTopicDisplay() {
+  buildTopicDisplay();
+  document.getElementById("main").classList.add("topic-mode");
+}
+function hideTopicDisplay() {
+  document.getElementById("main").classList.remove("topic-mode");
+}
+
+// ── Render topic vote counts ──────────────────────────────────
+let tvCounts = [0,0,0,0,0,0];
+
+function renderTopicVotes() {
+  const total  = tvCounts.reduce((a, b) => a + b, 0);
+  const maxVal = Math.max(...tvCounts, 1);
+  document.getElementById("tv-total").textContent = `共 ${total} 票`;
+  tvCounts.forEach((count, i) => {
+    const bar   = document.getElementById(`tv-bar-${i}`);
+    const votes = document.getElementById(`tv-votes-${i}`);
+    const opt   = document.getElementById(`tv-opt-${i}`);
+    if (!bar) return;
+    const pct = total > 0 ? Math.round(count / total * 100) : 0;
+    bar.style.width = pct + "%";
+    votes.textContent = total > 0 ? `${count} 票 (${pct}%)` : "0 票";
+    opt.classList.toggle("tv-leading", count > 0 && count === maxVal);
+  });
+}
+
 const DC_CIRC = 2 * Math.PI * 80; // ≈ 502.655
 
 function showDualTimer() {
@@ -1052,7 +1213,7 @@ function updateDisplay() {
   stageName.textContent    = STAGES[idx][0];
   progressText.textContent = idx < total ? `階段 ${idx+1} / ${total}` : "活動已結束";
 
-  if (!isFreeDebate()) {
+  if (!isFreeDebate() && !isTopicVote()) {
     const sl = stageSideLabel();
     sideLabel.textContent = sl.text; sideLabel.style.color = sl.color;
   }
@@ -1068,7 +1229,7 @@ function updateDisplay() {
 
   updateDots(); updateToggleBtn();
 
-  if (!isFreeDebate()) {
+  if (!isFreeDebate() && !isTopicVote()) {
     if (isOvertime) {
       timeText.textContent               = `+${fmt(overtime)}`;
       timeText.style.fill                = C.alert;
@@ -1093,6 +1254,12 @@ function updateToggleBtn() {
     btnToggle.textContent = done ? "自由辯論結束" : isRunning ? "⏸ 暫停" : "▶ 開始";
     btnToggle.disabled    = done;
     btnToggle.classList.toggle("running", isRunning && !done);
+    return;
+  }
+  if (isTopicVote()) {
+    btnToggle.textContent = "無計時";
+    btnToggle.disabled    = true;
+    btnToggle.classList.remove("running");
     return;
   }
   const isEnd = STAGES[stageIndex][1] === 0;
@@ -1253,6 +1420,14 @@ function loadStage() {
     hideDualTimer();
     arcProgress.style.stroke = stageRingColor();
   }
+  // Show/hide topic vote display
+  if (isTopicVote()) {
+    showTopicDisplay();
+  } else {
+    hideTopicDisplay();
+  }
+  // Sync stage name to Firebase so vote.html knows current stage
+  db.ref("debate/config/currentStage").set(STAGES[stageIndex][0]).catch(() => {});
   updateDisplay();
 }
 
@@ -1333,6 +1508,18 @@ db.ref("debate/likes").on("value", snap => {
       right.insertBefore(el, right.firstChild);
     }
   });
+});
+
+// ── FIREBASE: TOPIC VOTES ──────────────────────────────────────
+db.ref("debate/topicVotes").on("value", snap => {
+  tvCounts = [0,0,0,0,0,0];
+  snap.forEach(deviceSnap => {
+    deviceSnap.forEach(topicSnap => {
+      const idx = parseInt(topicSnap.key);
+      if (!isNaN(idx) && idx >= 0 && idx < 6) tvCounts[idx]++;
+    });
+  });
+  if (isTopicVote()) renderTopicVotes();
 });
 
 function renderComments(list) {
@@ -1559,6 +1746,8 @@ window.addEventListener("beforeunload", () => {
   db.ref("debate/comments").off();
   db.ref("debate/likes").off();
   db.ref("debate/config/votingOpen").off();
+  db.ref("debate/topicVotes").off();
+  db.ref("debate/config/currentStage").off();
 });
 
 // ══════════════════════════════════════════════════════════════
