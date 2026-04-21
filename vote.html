@@ -443,6 +443,22 @@
     opacity: 0.45;
     cursor: not-allowed;
   }
+  .tv-card.tv-closed {
+    opacity: 0.38;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  #tv-closed-notice {
+    background: rgba(198,31,31,0.15);
+    border: 1px solid rgba(198,31,31,0.4);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #FF9999;
+    text-align: center;
+    margin: 8px 18px 0;
+    display: none;
+  }
   .tv-card-header {
     display: flex;
     align-items: flex-start;
@@ -637,6 +653,7 @@
       <div id="tv-instruction">選出你最想辯論的下期題目<br>最多可投 <strong>2 票</strong>，可取消後重投</div>
       <div id="tv-my-status">已選 <span id="tv-my-count">0</span> / 2 票</div>
     </div>
+    <div id="tv-closed-notice">⏱ 投票時間已結束</div>
     <div id="tv-cards-list"></div>
   </div>
 
@@ -766,6 +783,7 @@ let myTopicVotes        = new Set(); // topic indices this device voted for
 let allTopicCounts      = [0,0,0,0,0,0];
 let tvCardsBuilt        = false;
 let tvListenersStarted  = false;
+let topicVotingAllowed  = true;
 
 function buildTopicCards() {
   if (tvCardsBuilt) return; tvCardsBuilt = true;
@@ -789,6 +807,7 @@ function buildTopicCards() {
 }
 
 function handleTopicVote(idx) {
+  if (!topicVotingAllowed) { showToast("投票時間已結束"); return; }
   const isSelected = myTopicVotes.has(idx);
   if (!isSelected && myTopicVotes.size >= 2) {
     showToast("最多只能投 2 票，請先取消一個");
@@ -798,8 +817,24 @@ function handleTopicVote(idx) {
   isSelected ? ref.remove() : ref.set(true);
 }
 
+function updateTopicClosedUI() {
+  const notice = document.getElementById("tv-closed-notice");
+  if (notice) notice.style.display = topicVotingAllowed ? "none" : "block";
+  TOPICS.forEach((_, i) => {
+    const card = document.getElementById(`tvcard-${i}`);
+    if (!card) return;
+    card.classList.toggle("tv-closed", !topicVotingAllowed);
+  });
+}
+
 function startTopicVoteListeners() {
   if (tvListenersStarted) return; tvListenersStarted = true;
+
+  // Topic voting open/close (auto-closed by timer)
+  db.ref("debate/config/topicVotingOpen").on("value", snap => {
+    topicVotingAllowed = snap.val() !== false;
+    updateTopicClosedUI();
+  });
 
   // Own votes
   db.ref(`debate/topicVotes/${deviceId}`).on("value", snap => {
@@ -1103,6 +1138,7 @@ window.addEventListener("beforeunload", () => {
   db.ref(`debate/topicVotes/${deviceId}`).off();
   db.ref("debate/topicVotes").off();
   db.ref("debate/config/currentStage").off();
+  db.ref("debate/config/topicVotingOpen").off();
 });
 </script>
 </body>

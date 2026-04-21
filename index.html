@@ -524,16 +524,30 @@
     padding-bottom: 14px;
     border-bottom: 2px solid var(--track);
     margin-bottom: 4px;
+    gap: 12px;
   }
   #tv-title {
     font-size: clamp(16px, 2.2vw, 26px);
     font-weight: 900;
     color: var(--ink);
+    flex: 1;
   }
+  #tv-countdown {
+    font-size: clamp(18px, 2.4vw, 30px);
+    font-weight: 900;
+    color: var(--navy);
+    font-family: "SF Mono", "Consolas", "Courier New", monospace;
+    letter-spacing: -1px;
+    flex-shrink: 0;
+  }
+  #tv-countdown.warn  { color: var(--warn);  }
+  #tv-countdown.alert { color: var(--alert); }
+  #tv-countdown.done  { color: var(--gray-blue); font-size: clamp(12px, 1.4vw, 16px); letter-spacing: 0; }
   #tv-total {
     font-size: clamp(12px, 1.4vw, 16px);
     font-weight: 700;
     color: var(--gray-blue);
+    flex-shrink: 0;
   }
   .tv-opt {
     padding: 13px 0;
@@ -850,6 +864,7 @@
     <div id="topic-vote-display">
       <div id="tv-header">
         <span id="tv-title">📊 下期題目票選</span>
+        <span id="tv-countdown">8:00</span>
         <span id="tv-total">共 0 票</span>
       </div>
       <div id="tv-options-list"></div>
@@ -946,7 +961,7 @@ const STAGES = [
   ["正方結辯",           120],
   ["反方結辯",           120],
   ["觀眾投票",           600],
-  ["下期題目票選",          0],
+  ["下期題目票選",        480],
   ["活動結束",             0],
 ];
 
@@ -1213,7 +1228,7 @@ function updateDisplay() {
   stageName.textContent    = STAGES[idx][0];
   progressText.textContent = idx < total ? `階段 ${idx+1} / ${total}` : "活動已結束";
 
-  if (!isFreeDebate() && !isTopicVote()) {
+  if (!isFreeDebate()) {
     const sl = stageSideLabel();
     sideLabel.textContent = sl.text; sideLabel.style.color = sl.color;
   }
@@ -1228,6 +1243,20 @@ function updateDisplay() {
   }
 
   updateDots(); updateToggleBtn();
+
+  // Update topic vote countdown display
+  if (isTopicVote()) {
+    const cdEl = document.getElementById("tv-countdown");
+    if (cdEl) {
+      if (timeLeft === 0) {
+        cdEl.textContent = "投票結束";
+        cdEl.className = "done";
+      } else {
+        cdEl.textContent = fmt(timeLeft);
+        cdEl.className = timeLeft <= 30 ? "alert" : timeLeft <= 60 ? "warn" : "";
+      }
+    }
+  }
 
   if (!isFreeDebate() && !isTopicVote()) {
     if (isOvertime) {
@@ -1254,12 +1283,6 @@ function updateToggleBtn() {
     btnToggle.textContent = done ? "自由辯論結束" : isRunning ? "⏸ 暫停" : "▶ 開始";
     btnToggle.disabled    = done;
     btnToggle.classList.toggle("running", isRunning && !done);
-    return;
-  }
-  if (isTopicVote()) {
-    btnToggle.textContent = "無計時";
-    btnToggle.disabled    = true;
-    btnToggle.classList.remove("running");
     return;
   }
   const isEnd = STAGES[stageIndex][1] === 0;
@@ -1317,7 +1340,17 @@ function tick() {
     if (remaining > 0) {
       timeLeft = remaining; isOvertime = false; overtime = 0; currentSec = remaining;
     } else {
-      if (!alarmPlayed) { playAlarm(); alarmPlayed = true; }
+      if (!alarmPlayed) {
+        playAlarm(); alarmPlayed = true;
+        // Topic vote: stop at 0, auto-close voting
+        if (isTopicVote()) {
+          isRunning = false;
+          clearInterval(tickInterval); tickInterval = null;
+          db.ref("debate/config/topicVotingOpen").set(false).catch(() => {});
+          updateDisplay(); updateToggleBtn();
+          return;
+        }
+      }
       timeLeft = 0; isOvertime = true; overtime = -remaining; currentSec = remaining;
     }
   }
@@ -1423,6 +1456,11 @@ function loadStage() {
   // Show/hide topic vote display
   if (isTopicVote()) {
     showTopicDisplay();
+    // Reset closed state so participants can vote again if stage reloaded
+    db.ref("debate/config/topicVotingOpen").set(true).catch(() => {});
+    // Reset countdown display
+    const cdEl = document.getElementById("tv-countdown");
+    if (cdEl) { cdEl.textContent = fmt(480); cdEl.className = ""; }
   } else {
     hideTopicDisplay();
   }
