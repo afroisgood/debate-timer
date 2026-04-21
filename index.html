@@ -524,30 +524,47 @@
     padding-bottom: 14px;
     border-bottom: 2px solid var(--track);
     margin-bottom: 4px;
-    gap: 12px;
   }
   #tv-title {
     font-size: clamp(16px, 2.2vw, 26px);
     font-weight: 900;
     color: var(--ink);
-    flex: 1;
   }
-  #tv-countdown {
-    font-size: clamp(18px, 2.4vw, 30px);
-    font-weight: 900;
-    color: var(--navy);
-    font-family: "SF Mono", "Consolas", "Courier New", monospace;
-    letter-spacing: -1px;
-    flex-shrink: 0;
-  }
-  #tv-countdown.warn  { color: var(--warn);  }
-  #tv-countdown.alert { color: var(--alert); }
-  #tv-countdown.done  { color: var(--gray-blue); font-size: clamp(12px, 1.4vw, 16px); letter-spacing: 0; }
   #tv-total {
     font-size: clamp(12px, 1.4vw, 16px);
     font-weight: 700;
     color: var(--gray-blue);
-    flex-shrink: 0;
+  }
+  #tv-countdown-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 2px solid var(--track);
+  }
+  #tv-countdown-label {
+    font-size: clamp(10px, 1vw, 13px);
+    font-weight: 700;
+    color: var(--gray-blue);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  #tv-countdown {
+    font-size: clamp(42px, 7vw, 86px);
+    font-weight: 900;
+    color: var(--navy);
+    font-family: "SF Mono", "Consolas", "Courier New", monospace;
+    letter-spacing: -3px;
+    line-height: 1;
+  }
+  #tv-countdown.warn  { color: var(--warn);  }
+  #tv-countdown.alert { color: var(--alert); }
+  #tv-countdown.done  {
+    color: var(--gray-blue);
+    font-size: clamp(20px, 3vw, 38px);
+    letter-spacing: 0;
   }
   .tv-opt {
     padding: 13px 0;
@@ -864,10 +881,13 @@
     <div id="topic-vote-display">
       <div id="tv-header">
         <span id="tv-title">📊 下期題目票選</span>
-        <span id="tv-countdown">8:00</span>
         <span id="tv-total">共 0 票</span>
       </div>
       <div id="tv-options-list"></div>
+      <div id="tv-countdown-wrap">
+        <span id="tv-countdown-label">剩餘時間</span>
+        <div id="tv-countdown">8:00</div>
+      </div>
     </div>
   </div>
 
@@ -1460,7 +1480,7 @@ function loadStage() {
     db.ref("debate/config/topicVotingOpen").set(true).catch(() => {});
     // Reset countdown display
     const cdEl = document.getElementById("tv-countdown");
-    if (cdEl) { cdEl.textContent = fmt(480); cdEl.className = ""; }
+    if (cdEl) { cdEl.textContent = fmt(stageTotalTime || 480); cdEl.className = ""; }
   } else {
     hideTopicDisplay();
   }
