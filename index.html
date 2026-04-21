@@ -1753,15 +1753,78 @@ document.getElementById("reset-topic-btn").addEventListener("click", () => {
 // ══════════════════════════════════════════════════════════════
 document.getElementById("export-btn").addEventListener("click", () => {
   db.ref("debate").once("value", snap => {
-    const blob = new Blob([JSON.stringify(snap.val(), null, 2)], { type: "application/json" });
+    const data    = snap.val() || {};
+    const now     = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+    const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+    const lines   = [];
+
+    lines.push("═══════════════════════════════════════");
+    lines.push("  生活之間：從住民到公民  辯論活動記錄");
+    lines.push(`  匯出時間：${dateStr} ${timeStr}`);
+    lines.push("═══════════════════════════════════════");
+    lines.push("");
+
+    // 投票
+    const votes = data.votes || {};
+    const vList = Object.values(votes);
+    const pro   = vList.filter(v => v.side === "正方").length;
+    const con   = vList.filter(v => v.side === "反方").length;
+    lines.push("【即時投票結果】");
+    lines.push(`  正方：${pro} 票`);
+    lines.push(`  反方：${con} 票`);
+    lines.push(`  總計：${pro + con} 票`);
+    lines.push("");
+
+    // 留言
+    const comments = data.comments || {};
+    const likes    = data.likes    || {};
+    const cList = Object.entries(comments)
+      .filter(([, c]) => !c.deleted)
+      .sort(([, a], [, b]) => a.createdAt - b.createdAt);
+    lines.push(`【留言紀錄】（共 ${cList.length} 則）`);
+    if (cList.length === 0) {
+      lines.push("  （無留言）");
+    } else {
+      cList.forEach(([key, c]) => {
+        const d         = new Date(c.createdAt);
+        const ts        = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+        const who       = c.nickname || "匿名";
+        const tag       = c.side ? `（${c.side}）` : "";
+        const likeCount = likes[key] ? Object.keys(likes[key]).length : 0;
+        const likeStr   = likeCount > 0 ? `  👍${likeCount}` : "";
+        lines.push(`  [${ts}] ${who}${tag}：${c.text}${likeStr}`);
+      });
+    }
+    lines.push("");
+
+    // 票選
+    const tvData = data.topicVotes || {};
+    const tvCounts = [0,0,0,0,0,0];
+    Object.values(tvData).forEach(dev => {
+      if (typeof dev === "object") Object.keys(dev).forEach(idx => {
+        const i = parseInt(idx);
+        if (!isNaN(i) && i < 6) tvCounts[i]++;
+      });
+    });
+    const tvTotal = tvCounts.reduce((a,b) => a+b, 0);
+    lines.push("【下期題目票選結果】");
+    TOPICS.forEach((topic, i) => {
+      const pct = tvTotal > 0 ? Math.round(tvCounts[i] / tvTotal * 100) : 0;
+      lines.push(`  ${i+1}. ${topic}`);
+      lines.push(`     → ${tvCounts[i]} 票（${pct}%）`);
+    });
+    lines.push("");
+    lines.push("═══════════════════════════════════════");
+
+    const text = lines.join("\n");
     const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(blob),
-      download: `debate-${new Date().toISOString().slice(0,10)}.json`
+      href:     "data:text/plain;charset=utf-8," + encodeURIComponent(text),
+      download: `debate-${dateStr}.txt`
     });
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
   });
 });
 
