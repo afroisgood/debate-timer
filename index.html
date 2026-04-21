@@ -1758,7 +1758,10 @@ document.getElementById("export-btn").addEventListener("click", () => {
       href: URL.createObjectURL(blob),
       download: `debate-${new Date().toISOString().slice(0,10)}.json`
     });
-    a.click(); URL.revokeObjectURL(a.href);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
   });
 });
 
