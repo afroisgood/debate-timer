@@ -927,6 +927,24 @@
   </div>
 </div>
 
+<!-- Export Modal -->
+<div class="modal-overlay" id="export-modal">
+  <div class="modal-box" style="width:min(680px,94vw); max-height:88vh; overflow:hidden; display:flex; flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+      <h3>匯出資料</h3>
+      <button class="modal-btn cancel" id="export-copy-btn" style="font-size:13px; padding:6px 14px; height:auto;">複製全部</button>
+    </div>
+    <textarea id="export-textarea" readonly
+      style="flex:1; min-height:0; background:var(--navy-dk); color:var(--cream); border:1px solid var(--gray-blue-dk);
+             border-radius:10px; padding:14px; font-family:'SF Mono','Consolas','Courier New',monospace;
+             font-size:12px; line-height:1.7; resize:none; outline:none; overflow-y:auto;"></textarea>
+    <div id="export-copy-hint" style="font-size:12px; color:var(--yellow); text-align:center; min-height:18px;"></div>
+    <div class="modal-btns" style="flex-shrink:0;">
+      <button class="modal-btn cancel" id="export-close">關閉</button>
+    </div>
+  </div>
+</div>
+
 <!-- QR Code Modal -->
 <div class="modal-overlay" id="qr-modal">
   <div class="modal-box">
@@ -1751,81 +1769,101 @@ document.getElementById("reset-topic-btn").addEventListener("click", () => {
 // ══════════════════════════════════════════════════════════════
 // EXPORT
 // ══════════════════════════════════════════════════════════════
+function buildExportText(data) {
+  const now     = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+  const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  const lines   = [];
+
+  lines.push("═══════════════════════════════════════");
+  lines.push("  生活之間：從住民到公民  辯論活動記錄");
+  lines.push(`  匯出時間：${dateStr} ${timeStr}`);
+  lines.push("═══════════════════════════════════════");
+  lines.push("");
+
+  // 投票
+  const vList = Object.values(data.votes || {});
+  const pro   = vList.filter(v => v.side === "正方").length;
+  const con   = vList.filter(v => v.side === "反方").length;
+  lines.push("【即時投票結果】");
+  lines.push(`  正方：${pro} 票`);
+  lines.push(`  反方：${con} 票`);
+  lines.push(`  總計：${pro + con} 票`);
+  lines.push("");
+
+  // 留言
+  const comments = data.comments || {};
+  const likes    = data.likes    || {};
+  const cList = Object.entries(comments)
+    .filter(([, c]) => !c.deleted)
+    .sort(([, a], [, b]) => a.createdAt - b.createdAt);
+  lines.push(`【留言紀錄】（共 ${cList.length} 則）`);
+  if (cList.length === 0) {
+    lines.push("  （無留言）");
+  } else {
+    cList.forEach(([key, c]) => {
+      const d         = new Date(c.createdAt);
+      const ts        = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+      const who       = c.nickname || "匿名";
+      const tag       = c.side ? `（${c.side}）` : "";
+      const likeCount = likes[key] ? Object.keys(likes[key]).length : 0;
+      const likeStr   = likeCount > 0 ? `  👍${likeCount}` : "";
+      lines.push(`  [${ts}] ${who}${tag}：${c.text}${likeStr}`);
+    });
+  }
+  lines.push("");
+
+  // 票選
+  const tvCounts = [0,0,0,0,0,0];
+  Object.values(data.topicVotes || {}).forEach(dev => {
+    if (typeof dev === "object") Object.keys(dev).forEach(idx => {
+      const i = parseInt(idx);
+      if (!isNaN(i) && i < 6) tvCounts[i]++;
+    });
+  });
+  const tvTotal = tvCounts.reduce((a,b) => a+b, 0);
+  lines.push("【下期題目票選結果】");
+  TOPICS.forEach((topic, i) => {
+    const pct = tvTotal > 0 ? Math.round(tvCounts[i] / tvTotal * 100) : 0;
+    lines.push(`  ${i+1}. ${topic}`);
+    lines.push(`     → ${tvCounts[i]} 票（${pct}%）`);
+  });
+  lines.push("");
+  lines.push("═══════════════════════════════════════");
+  return lines.join("\n");
+}
+
 document.getElementById("export-btn").addEventListener("click", () => {
   db.ref("debate").once("value", snap => {
-    const data    = snap.val() || {};
-    const now     = new Date();
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
-    const timeStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-    const lines   = [];
-
-    lines.push("═══════════════════════════════════════");
-    lines.push("  生活之間：從住民到公民  辯論活動記錄");
-    lines.push(`  匯出時間：${dateStr} ${timeStr}`);
-    lines.push("═══════════════════════════════════════");
-    lines.push("");
-
-    // 投票
-    const votes = data.votes || {};
-    const vList = Object.values(votes);
-    const pro   = vList.filter(v => v.side === "正方").length;
-    const con   = vList.filter(v => v.side === "反方").length;
-    lines.push("【即時投票結果】");
-    lines.push(`  正方：${pro} 票`);
-    lines.push(`  反方：${con} 票`);
-    lines.push(`  總計：${pro + con} 票`);
-    lines.push("");
-
-    // 留言
-    const comments = data.comments || {};
-    const likes    = data.likes    || {};
-    const cList = Object.entries(comments)
-      .filter(([, c]) => !c.deleted)
-      .sort(([, a], [, b]) => a.createdAt - b.createdAt);
-    lines.push(`【留言紀錄】（共 ${cList.length} 則）`);
-    if (cList.length === 0) {
-      lines.push("  （無留言）");
-    } else {
-      cList.forEach(([key, c]) => {
-        const d         = new Date(c.createdAt);
-        const ts        = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-        const who       = c.nickname || "匿名";
-        const tag       = c.side ? `（${c.side}）` : "";
-        const likeCount = likes[key] ? Object.keys(likes[key]).length : 0;
-        const likeStr   = likeCount > 0 ? `  👍${likeCount}` : "";
-        lines.push(`  [${ts}] ${who}${tag}：${c.text}${likeStr}`);
-      });
-    }
-    lines.push("");
-
-    // 票選
-    const tvData = data.topicVotes || {};
-    const tvCounts = [0,0,0,0,0,0];
-    Object.values(tvData).forEach(dev => {
-      if (typeof dev === "object") Object.keys(dev).forEach(idx => {
-        const i = parseInt(idx);
-        if (!isNaN(i) && i < 6) tvCounts[i]++;
-      });
-    });
-    const tvTotal = tvCounts.reduce((a,b) => a+b, 0);
-    lines.push("【下期題目票選結果】");
-    TOPICS.forEach((topic, i) => {
-      const pct = tvTotal > 0 ? Math.round(tvCounts[i] / tvTotal * 100) : 0;
-      lines.push(`  ${i+1}. ${topic}`);
-      lines.push(`     → ${tvCounts[i]} 票（${pct}%）`);
-    });
-    lines.push("");
-    lines.push("═══════════════════════════════════════");
-
-    const text = lines.join("\n");
-    const a = Object.assign(document.createElement("a"), {
-      href:     "data:text/plain;charset=utf-8," + encodeURIComponent(text),
-      download: `debate-${dateStr}.txt`
-    });
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const text = buildExportText(snap.val() || {});
+    const ta   = document.getElementById("export-textarea");
+    ta.value   = text;
+    document.getElementById("export-copy-hint").textContent = "";
+    document.getElementById("export-modal").classList.add("open");
+    // Auto-select all so user can copy immediately
+    setTimeout(() => { ta.focus(); ta.select(); }, 80);
   });
+});
+
+document.getElementById("export-close").addEventListener("click", () =>
+  document.getElementById("export-modal").classList.remove("open"));
+
+document.getElementById("export-copy-btn").addEventListener("click", () => {
+  const ta   = document.getElementById("export-textarea");
+  const hint = document.getElementById("export-copy-hint");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value).then(() => {
+      hint.textContent = "✓ 已複製到剪貼簿";
+      setTimeout(() => { hint.textContent = ""; }, 2500);
+    }).catch(() => {
+      ta.select(); hint.textContent = "請手動 Ctrl+A → Ctrl+C 複製";
+    });
+  } else {
+    ta.select();
+    document.execCommand("copy");
+    hint.textContent = "✓ 已複製到剪貼簿";
+    setTimeout(() => { hint.textContent = ""; }, 2500);
+  }
 });
 
 // ══════════════════════════════════════════════════════════════
