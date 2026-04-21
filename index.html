@@ -418,10 +418,12 @@
   .action-btn:hover { background: rgba(255,255,255,0.14); color: var(--cream); }
   .action-btn.danger { background: rgba(198,31,31,0.25); color: #FF9999; }
   .action-btn.danger:hover { background: rgba(198,31,31,0.45); }
-  #export-btn, #clear-votes-btn, #toggle-vote-btn { display: none; }
+  #export-btn, #clear-votes-btn, #toggle-vote-btn, #reset-topic-btn { display: none; }
   .admin-active #export-btn,
   .admin-active #clear-votes-btn,
   .admin-active #toggle-vote-btn { display: inline-block; }
+  /* Reset topic btn lives in topic-vote-display, toggled via JS */
+  #reset-topic-btn { height: 32px; padding: 0 12px; font-size: 12px; border-radius: 8px; }
 
   #vote-closed-badge {
     display: none;
@@ -882,6 +884,7 @@
       <div id="tv-header">
         <span id="tv-title">📊 下期題目票選</span>
         <span id="tv-total">共 0 票</span>
+        <button class="action-btn danger" id="reset-topic-btn">重置票選</button>
       </div>
       <div id="tv-options-list"></div>
       <div id="tv-countdown-wrap">
@@ -1301,13 +1304,13 @@ function updateToggleBtn() {
   if (isFreeDebate()) {
     const done = fdProTime === 0 && fdConTime === 0;
     btnToggle.textContent = done ? "自由辯論結束" : isRunning ? "⏸ 暫停" : "▶ 開始";
-    btnToggle.disabled    = done;
+    btnToggle.disabled    = !isAdminMode || done;
     btnToggle.classList.toggle("running", isRunning && !done);
     return;
   }
   const isEnd = STAGES[stageIndex][1] === 0;
   btnToggle.textContent = isEnd ? "活動結束" : isRunning ? "⏸ 暫停" : "▶ 開始";
-  btnToggle.disabled    = isEnd;
+  btnToggle.disabled    = !isAdminMode || isEnd;
   btnToggle.classList.toggle("running", isRunning && !isEnd);
 }
 
@@ -1644,12 +1647,38 @@ const adminError = document.getElementById("admin-error");
 const adminBtn   = document.getElementById("admin-btn");
 const commentSection = document.getElementById("right-panel");
 
+// ── Enable / disable all admin-gated controls ─────────────────
+function setControlsEnabled(on) {
+  ["btn-prev", "btn-next", "btn-reset", "btn-p30", "btn-p60", "btn-m30", "btn-m60"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.disabled = !on;
+  });
+  stageSelect.disabled = !on;
+  // Dot bar: block pointer events when not admin
+  dotsContainer.querySelectorAll(".dot-item").forEach(d => {
+    d.style.pointerEvents = on ? "" : "none";
+    d.style.cursor        = on ? "" : "default";
+  });
+  // Switch-side btn (free debate)
+  const ssBtn = document.getElementById("switch-side-btn");
+  if (ssBtn && !on) ssBtn.disabled = true;
+  // Reset topic votes btn
+  document.getElementById("reset-topic-btn").style.display = on ? "inline-block" : "none";
+  // Toggle btn respects isAdminMode via updateToggleBtn()
+  updateToggleBtn();
+}
+
 adminBtn.addEventListener("click", () => {
   if (isAdminMode) {
+    // Stop timer before logging out
+    if (isRunning) {
+      clearInterval(tickInterval); tickInterval = null;
+      isRunning = false;
+    }
     isAdminMode = false;
     adminBtn.textContent = "管理員";
     adminBtn.classList.remove("danger");
     commentSection.classList.remove("admin-active");
+    setControlsEnabled(false);
   } else {
     adminPwd.value = ""; adminError.style.display = "none";
     adminModal.classList.add("open");
@@ -1668,6 +1697,7 @@ function confirmAdmin() {
     adminBtn.classList.add("danger");
     commentSection.classList.add("admin-active");
     adminModal.classList.remove("open");
+    setControlsEnabled(true);
   } else {
     adminError.style.display = "block";
     adminPwd.select();
@@ -1704,6 +1734,17 @@ document.getElementById("clear-votes-btn").addEventListener("click", () => {
         db.ref("debate/votes").update(updates);
       }
     });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+// RESET TOPIC VOTES (admin only)
+// ══════════════════════════════════════════════════════════════
+document.getElementById("reset-topic-btn").addEventListener("click", () => {
+  if (confirm("確定要清除所有票選紀錄嗎？此操作無法復原。")) {
+    db.ref("debate/topicVotes").set(null).catch(() => {});
+    // Also re-open voting in case it was auto-closed
+    db.ref("debate/config/topicVotingOpen").set(true).catch(() => {});
   }
 });
 
@@ -1783,6 +1824,7 @@ document.addEventListener("keydown", e => {
     if (e.key === "Escape") document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("open"));
     return;
   }
+  if (!isAdminMode) return; // all shortcuts require admin login
   switch(e.key) {
     case " ":          e.preventDefault(); toggleTimer(); break;
     case "ArrowRight": e.preventDefault(); nextStage();   break;
@@ -1814,6 +1856,7 @@ window.addEventListener("beforeunload", () => {
 arcProgress.style.strokeDasharray  = CIRCUMFERENCE;
 arcProgress.style.strokeDashoffset = 0;
 buildDots();
+setControlsEnabled(false); // all controls locked until admin login
 updateDisplay();
 </script>
 </body>
