@@ -1834,14 +1834,26 @@ function buildExportText(data) {
 }
 
 document.getElementById("export-btn").addEventListener("click", () => {
-  db.ref("debate").once("value", snap => {
-    const text = buildExportText(snap.val() || {});
+  Promise.all([
+    db.ref("debate/votes").once("value"),
+    db.ref("debate/comments").once("value"),
+    db.ref("debate/likes").once("value"),
+    db.ref("debate/topicVotes").once("value"),
+  ]).then(([votesSnap, commentsSnap, likesSnap, topicSnap]) => {
+    const data = {
+      votes:       votesSnap.val()   || {},
+      comments:    commentsSnap.val()|| {},
+      likes:       likesSnap.val()   || {},
+      topicVotes:  topicSnap.val()   || {},
+    };
+    const text = buildExportText(data);
     const ta   = document.getElementById("export-textarea");
     ta.value   = text;
     document.getElementById("export-copy-hint").textContent = "";
     document.getElementById("export-modal").classList.add("open");
-    // Auto-select all so user can copy immediately
     setTimeout(() => { ta.focus(); ta.select(); }, 80);
+  }).catch(err => {
+    alert("讀取資料失敗：" + err.message);
   });
 });
 
