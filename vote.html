@@ -956,7 +956,7 @@ function initFirebaseListeners() {
     commentsCache = [];
     snap.forEach(child => {
       const c = child.val();
-      if (!c.deleted) commentsCache.push({ id: child.key, ...c });
+      if (c && typeof c === 'object' && !c.deleted) commentsCache.push({ id: child.key, ...c });
     });
     renderFeed(commentsCache);
   });

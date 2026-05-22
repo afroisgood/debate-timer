@@ -62,8 +62,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex: 1;
   }
+
   #qr-btn {
     background: var(--gray-blue-dk);
     color: var(--cream);
@@ -762,7 +762,7 @@
 
   <!-- Title Bar -->
   <header id="title-bar">
-    <h1>【社交沙龍】生活之間：從住民到公民 系列辯論活動</h1>
+    <h1>【社交沙龍】生活之間：從住民到公民 系列辯論活動　觀光產業是花蓮最該力推的產業嗎？</h1>
     <button id="qr-btn">📱 QR Code</button>
   </header>
 
@@ -1565,7 +1565,7 @@ db.ref("debate/comments").orderByChild("createdAt").on("value", snap => {
   commentsCache = [];
   snap.forEach(child => {
     const c = child.val();
-    if (!c.deleted) commentsCache.push({ id: child.key, ...c });
+    if (c && typeof c === 'object' && !c.deleted) commentsCache.push({ id: child.key, ...c });
   });
   renderComments(commentsCache);
 });
