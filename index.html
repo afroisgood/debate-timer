@@ -382,6 +382,7 @@
     align-items: center;
     justify-content: center;
     gap: 20px;
+    position: fixed;
   }
   body.vote-revealed #vote-result-overlay { display: flex; }
 
@@ -449,21 +450,25 @@
     font-weight: 600;
   }
   #vro-close-btn {
-    position: fixed;
+    position: absolute;
     top: 20px;
     right: 24px;
+    width: 40px;
+    height: 40px;
     background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: rgba(245,239,224,0.5);
-    border-radius: 8px;
-    padding: 6px 14px;
-    font-size: 12px;
-    font-weight: 700;
+    border: 1px solid rgba(255,255,255,0.18);
+    color: rgba(245,239,224,0.7);
+    border-radius: 50%;
+    font-size: 20px;
+    line-height: 1;
     font-family: inherit;
     cursor: pointer;
-    display: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
   }
-  .admin-active #vro-close-btn { display: block; }
+  #vro-close-btn:hover { background: rgba(255,255,255,0.18); color: var(--cream); }
 
   #comment-list {
     flex: 1;
@@ -936,7 +941,7 @@
     <div id="vro-bar-con"></div>
   </div>
   <div id="vro-total">共 0 票</div>
-  <button id="vro-close-btn">取消公布</button>
+  <button id="vro-close-btn">✕</button>
 </div>
 
 <!-- Admin Modal -->
