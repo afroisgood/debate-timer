@@ -418,10 +418,24 @@
   .action-btn:hover { background: rgba(255,255,255,0.14); color: var(--cream); }
   .action-btn.danger { background: rgba(198,31,31,0.25); color: #FF9999; }
   .action-btn.danger:hover { background: rgba(198,31,31,0.45); }
-  #export-btn, #clear-votes-btn, #toggle-vote-btn, #reset-topic-btn { display: none; }
+  #export-btn, #clear-votes-btn, #toggle-vote-btn, #reset-topic-btn, #reveal-vote-btn { display: none; }
   .admin-active #export-btn,
   .admin-active #clear-votes-btn,
-  .admin-active #toggle-vote-btn { display: inline-block; }
+  .admin-active #toggle-vote-btn,
+  .admin-active #reveal-vote-btn { display: inline-block; }
+
+  #vote-results-wrap { display: none; }
+  .admin-active #vote-results-wrap { display: block; }
+  .vote-revealed #vote-results-wrap { display: block; }
+  #vote-pending-notice {
+    font-size: 13px;
+    color: rgba(245,239,224,0.4);
+    text-align: center;
+    padding: 12px 0 4px;
+    letter-spacing: 0.04em;
+  }
+  .admin-active #vote-pending-notice,
+  .vote-revealed #vote-pending-notice { display: none; }
   /* Reset topic btn lives in topic-vote-display, toggled via JS */
   #reset-topic-btn { height: 32px; padding: 0 12px; font-size: 12px; border-radius: 8px; }
 
@@ -841,22 +855,26 @@
           <span id="vote-closed-badge">已關閉</span>
           <button class="action-btn" id="toggle-vote-btn">關閉投票</button>
           <button class="action-btn danger" id="clear-votes-btn">清除投票</button>
+          <button class="action-btn" id="reveal-vote-btn">公布結果</button>
         </div>
-        <div class="vote-row">
-          <div class="vote-side-block pro">
-            <div class="vote-side-name">正方</div>
-            <div class="vote-num" id="pro-count">0</div>
-            <div class="vote-pct" id="pro-pct">—</div>
+        <div id="vote-pending-notice">投票進行中，結果尚未公布</div>
+        <div id="vote-results-wrap">
+          <div class="vote-row">
+            <div class="vote-side-block pro">
+              <div class="vote-side-name">正方</div>
+              <div class="vote-num" id="pro-count">0</div>
+              <div class="vote-pct" id="pro-pct">—</div>
+            </div>
+            <div class="vote-side-block con">
+              <div class="vote-pct" id="con-pct">—</div>
+              <div class="vote-num" id="con-count">0</div>
+              <div class="vote-side-name">反方</div>
+            </div>
           </div>
-          <div class="vote-side-block con">
-            <div class="vote-pct" id="con-pct">—</div>
-            <div class="vote-num" id="con-count">0</div>
-            <div class="vote-side-name">反方</div>
+          <div class="vote-bar-wrap">
+            <div id="vote-bar-pro"></div>
+            <div id="vote-bar-con"></div>
           </div>
-        </div>
-        <div class="vote-bar-wrap">
-          <div id="vote-bar-pro"></div>
-          <div id="vote-bar-con"></div>
         </div>
       </div>
 
@@ -1722,6 +1740,23 @@ function confirmAdmin() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// VOTE REVEAL (admin only)
+// ══════════════════════════════════════════════════════════════
+let voteRevealed = false;
+
+db.ref("debate/config/voteRevealed").on("value", snap => {
+  voteRevealed = snap.val() === true;
+  document.body.classList.toggle("vote-revealed", voteRevealed);
+  const btn = document.getElementById("reveal-vote-btn");
+  btn.textContent = voteRevealed ? "取消公布" : "公布結果";
+  btn.classList.toggle("danger", voteRevealed);
+});
+
+document.getElementById("reveal-vote-btn").addEventListener("click", () => {
+  db.ref("debate/config/voteRevealed").set(!voteRevealed);
+});
+
+// ══════════════════════════════════════════════════════════════
 // VOTE OPEN / CLOSE (admin only)
 // ══════════════════════════════════════════════════════════════
 let votingOpen = true;
@@ -1961,6 +1996,7 @@ window.addEventListener("beforeunload", () => {
   db.ref("debate/comments").off();
   db.ref("debate/likes").off();
   db.ref("debate/config/votingOpen").off();
+  db.ref("debate/config/voteRevealed").off();
   db.ref("debate/topicVotes").off();
   db.ref("debate/config/currentStage").off();
 });

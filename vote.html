@@ -224,15 +224,140 @@
     transform: scale(1.03);
   }
 
-  /* Vote tally bar */
+  /* Vote tally bar — hidden until admin reveals */
   #vote-tally {
     background: rgba(255,255,255,0.05);
     border-radius: 12px;
     padding: 12px 14px;
     margin-bottom: 18px;
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: 8px;
+  }
+  body.vote-revealed #vote-tally,
+  body.admin-logged-in #vote-tally { display: flex; }
+
+  /* Admin FAB */
+  #admin-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(245,239,224,0.08);
+    border: 1px solid rgba(245,239,224,0.15);
+    color: rgba(245,239,224,0.3);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    transition: background 0.2s, color 0.2s;
+  }
+  body.admin-logged-in #admin-fab {
+    background: rgba(244,196,48,0.2);
+    border-color: rgba(244,196,48,0.4);
+    color: var(--yellow);
+  }
+
+  /* Admin login modal */
+  #admin-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(8,26,51,0.85);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+  }
+  #admin-modal.open { display: flex; }
+  #admin-modal-box {
+    background: #1A3A6A;
+    border-radius: 16px;
+    padding: 28px 24px;
+    width: min(320px, 90vw);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #admin-modal-box h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--cream);
+    text-align: center;
+  }
+  #admin-pwd-input {
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 15px;
+    color: var(--cream);
+    outline: none;
+  }
+  #admin-pwd-error {
+    font-size: 12px;
+    color: #FF9999;
+    text-align: center;
+    display: none;
+  }
+  .admin-modal-btns {
+    display: flex;
+    gap: 10px;
+  }
+  .adm-btn {
+    flex: 1;
+    padding: 11px;
+    border-radius: 10px;
+    border: none;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .adm-btn.cancel { background: rgba(255,255,255,0.08); color: var(--cream); }
+  .adm-btn.ok     { background: var(--yellow); color: var(--ink); }
+
+  /* Admin stats bar (visible when logged in) */
+  #admin-stats-bar {
+    display: none;
+    background: rgba(244,196,48,0.1);
+    border: 1px solid rgba(244,196,48,0.25);
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin: 12px 18px 0;
+    gap: 12px;
+    align-items: center;
+    font-size: 13px;
+  }
+  body.admin-logged-in #admin-stats-bar { display: flex; }
+  #admin-stats-bar .adm-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--yellow);
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+  #admin-stats-bar .adm-counts {
+    flex: 1;
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+  }
+  #admin-stats-bar .adm-pro { color: var(--coral); font-weight: 700; }
+  #admin-stats-bar .adm-con { color: var(--orange); font-weight: 700; }
+  #admin-stats-bar .adm-total { color: rgba(245,239,224,0.6); }
+  #admin-logout-btn {
+    background: none;
+    border: 1px solid rgba(245,239,224,0.2);
+    border-radius: 8px;
+    color: rgba(245,239,224,0.5);
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+    white-space: nowrap;
   }
   .tally-bar-wrap {
     height: 18px;
@@ -623,6 +748,17 @@
     </div>
   </div>
 
+  <!-- Admin stats bar (only visible when admin logged in) -->
+  <div id="admin-stats-bar">
+    <span class="adm-label">管理員</span>
+    <div class="adm-counts">
+      <span class="adm-pro" id="adm-pro-text">正方 0票</span>
+      <span class="adm-total" id="adm-total-text">共 0 票</span>
+      <span class="adm-con" id="adm-con-text">0票 反方</span>
+    </div>
+    <button id="admin-logout-btn">登出</button>
+  </div>
+
   <!-- Comment Input -->
   <div class="app-section" id="comment-section">
     <div class="section-label">留言</div>
@@ -657,6 +793,22 @@
     <div id="tv-cards-list"></div>
   </div>
 
+</div>
+
+<!-- Admin FAB -->
+<button id="admin-fab" title="管理員登入">⚙</button>
+
+<!-- Admin login modal -->
+<div id="admin-modal">
+  <div id="admin-modal-box">
+    <h3>管理員登入</h3>
+    <input type="password" id="admin-pwd-input" placeholder="輸入密碼" autocomplete="off"/>
+    <div id="admin-pwd-error">密碼錯誤</div>
+    <div class="admin-modal-btns">
+      <button class="adm-btn cancel" id="admin-modal-cancel">取消</button>
+      <button class="adm-btn ok"     id="admin-modal-ok">登入</button>
+    </div>
+  </div>
 </div>
 
 <!-- Change nickname modal -->
@@ -949,6 +1101,7 @@ function initFirebaseListeners() {
       else if (v.side === "反方") con++;
     });
     updateTally(pro, con);
+    updateAdminStats(pro, con);
   });
 
   // Listen to comments
@@ -1127,10 +1280,74 @@ function showToast(msg) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// VOTE REVEALED — show tally when admin publishes results
+// ══════════════════════════════════════════════════════════════
+db.ref("debate/config/voteRevealed").on("value", snap => {
+  document.body.classList.toggle("vote-revealed", snap.val() === true);
+});
+
+// ══════════════════════════════════════════════════════════════
+// ADMIN LOGIN (vote.html side)
+// ══════════════════════════════════════════════════════════════
+const ADMIN_PASSWORD = "debate2026";
+let adminLoggedIn = false;
+
+const adminFab    = document.getElementById("admin-fab");
+const adminModal  = document.getElementById("admin-modal");
+const adminPwdIn  = document.getElementById("admin-pwd-input");
+const adminPwdErr = document.getElementById("admin-pwd-error");
+
+function setAdminLoggedIn(val) {
+  adminLoggedIn = val;
+  document.body.classList.toggle("admin-logged-in", val);
+}
+
+adminFab.addEventListener("click", () => {
+  if (adminLoggedIn) {
+    setAdminLoggedIn(false);
+    return;
+  }
+  adminPwdIn.value = "";
+  adminPwdErr.style.display = "none";
+  adminModal.classList.add("open");
+  setTimeout(() => adminPwdIn.focus(), 100);
+});
+
+document.getElementById("admin-modal-cancel").addEventListener("click", () => {
+  adminModal.classList.remove("open");
+});
+
+function attemptAdminLogin() {
+  if (adminPwdIn.value === ADMIN_PASSWORD) {
+    adminModal.classList.remove("open");
+    setAdminLoggedIn(true);
+  } else {
+    adminPwdErr.style.display = "block";
+    adminPwdIn.select();
+  }
+}
+
+document.getElementById("admin-modal-ok").addEventListener("click", attemptAdminLogin);
+adminPwdIn.addEventListener("keydown", e => { if (e.key === "Enter") attemptAdminLogin(); });
+
+document.getElementById("admin-logout-btn").addEventListener("click", () => {
+  setAdminLoggedIn(false);
+});
+
+// Update admin stats bar whenever votes change (reuses same listener data)
+function updateAdminStats(pro, con) {
+  const total = pro + con;
+  document.getElementById("adm-pro-text").textContent   = `正方 ${pro}票`;
+  document.getElementById("adm-con-text").textContent   = `${con}票 反方`;
+  document.getElementById("adm-total-text").textContent = `共 ${total} 票`;
+}
+
+// ══════════════════════════════════════════════════════════════
 // FIREBASE CLEANUP  — detach all listeners on page unload
 // ══════════════════════════════════════════════════════════════
 window.addEventListener("beforeunload", () => {
   db.ref("debate/config/votingOpen").off();
+  db.ref("debate/config/voteRevealed").off();
   db.ref(`debate/votes/${deviceId}`).off();
   db.ref("debate/votes").off();
   db.ref("debate/comments").off();
