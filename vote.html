@@ -394,6 +394,95 @@
   }
   #my-vote-status strong { color: var(--yellow); }
 
+  /* ── Question FAB ── */
+  #question-fab {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--yellow);
+    color: var(--ink);
+    border: none;
+    border-radius: 999px;
+    padding: 13px 26px;
+    font-size: 14px;
+    font-family: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    z-index: 200;
+    transition: transform 0.12s, filter 0.12s;
+  }
+  #question-fab:active { transform: translateX(-50%) scale(0.96); }
+
+  /* ── Question Modal ── */
+  #question-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(8,26,51,0.85);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+  }
+  #question-modal.open { display: flex; }
+  #question-modal-box {
+    background: #1A3A6A;
+    border-radius: 16px;
+    padding: 28px 24px;
+    width: min(360px, 90vw);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #question-modal-box h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--cream);
+    text-align: center;
+  }
+  #qm-side-picker {
+    display: flex;
+    gap: 10px;
+  }
+  .qm-side-btn {
+    flex: 1;
+    padding: 16px 8px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    color: var(--cream);
+    font-size: 16px;
+    font-family: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .qm-side-btn.pro.selected { background: var(--coral); border-color: var(--coral); }
+  .qm-side-btn.con.selected { background: var(--orange); border-color: var(--orange); }
+  #qm-form { display: none; flex-direction: column; gap: 10px; }
+  #qm-form.open { display: flex; }
+  #qm-target-label { font-size: 13px; color: var(--muted); text-align: center; }
+  #qm-target-label strong { color: var(--cream); }
+  #qm-textarea {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--cream);
+    font-size: 15px;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: none;
+    width: 100%;
+    min-height: 80px;
+    outline: none;
+  }
+  #qm-textarea::placeholder { color: var(--muted); }
+  #qm-char-count { font-size: 12px; color: var(--muted); text-align: right; }
+  #qm-char-count.warn { color: #FFAA55; }
+  #qm-char-count.over { color: #FF7777; }
+
   /* ── Comment Input ── */
   #comment-section { padding-bottom: 0; }
   #comment-input-wrap {
@@ -793,6 +882,29 @@
     <div id="tv-cards-list"></div>
   </div>
 
+</div>
+
+<!-- Question FAB -->
+<button id="question-fab">🙋 提問</button>
+
+<!-- Question modal -->
+<div id="question-modal">
+  <div id="question-modal-box">
+    <h3>我要提問</h3>
+    <div id="qm-side-picker">
+      <button class="qm-side-btn pro" id="qm-side-pro" data-side="正方">正方</button>
+      <button class="qm-side-btn con" id="qm-side-con" data-side="反方">反方</button>
+    </div>
+    <div id="qm-form">
+      <div id="qm-target-label">提問對象：<strong id="qm-target-name"></strong>（匿名送出）</div>
+      <textarea id="qm-textarea" placeholder="輸入你想問的問題…" maxlength="100" rows="3"></textarea>
+      <div id="qm-char-count">0 / 100</div>
+    </div>
+    <div class="admin-modal-btns">
+      <button class="adm-btn cancel" id="qm-cancel">取消</button>
+      <button class="adm-btn ok" id="qm-submit" disabled>送出提問</button>
+    </div>
+  </div>
 </div>
 
 <!-- Admin FAB -->
@@ -1211,6 +1323,79 @@ async function submitComment() {
   } catch(e) {
     showToast("送出失敗，請重試");
     sendBtn.disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// QUESTION MODAL — ask an anonymous question for 正方/反方, any time
+// ══════════════════════════════════════════════════════════════
+const questionFab   = document.getElementById("question-fab");
+const questionModal = document.getElementById("question-modal");
+const qmSidePicker  = document.getElementById("qm-side-picker");
+const qmForm        = document.getElementById("qm-form");
+const qmTargetName  = document.getElementById("qm-target-name");
+const qmTextarea    = document.getElementById("qm-textarea");
+const qmCharCount   = document.getElementById("qm-char-count");
+const qmSubmitBtn   = document.getElementById("qm-submit");
+let qmSide = null; // "正方" | "反方" | null
+
+function resetQuestionModal() {
+  qmSide = null;
+  qmForm.classList.remove("open");
+  qmSidePicker.querySelectorAll(".qm-side-btn").forEach(b => b.classList.remove("selected"));
+  qmTextarea.value = "";
+  qmCharCount.textContent = `0 / ${MAX_LEN}`;
+  qmCharCount.className = "";
+  qmSubmitBtn.disabled = true;
+}
+
+questionFab.addEventListener("click", () => {
+  resetQuestionModal();
+  questionModal.classList.add("open");
+});
+
+document.getElementById("qm-cancel").addEventListener("click", () => {
+  questionModal.classList.remove("open");
+});
+
+qmSidePicker.querySelectorAll(".qm-side-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    qmSide = btn.dataset.side;
+    qmSidePicker.querySelectorAll(".qm-side-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    qmTargetName.textContent = qmSide;
+    qmForm.classList.add("open");
+    qmSubmitBtn.disabled = qmTextarea.value.trim().length === 0;
+    qmTextarea.focus();
+  });
+});
+
+qmTextarea.addEventListener("input", () => {
+  const len = qmTextarea.value.length;
+  qmCharCount.textContent = `${len} / ${MAX_LEN}`;
+  qmCharCount.className   = len >= MAX_LEN ? "over" : len >= 80 ? "warn" : "";
+  qmSubmitBtn.disabled    = len === 0 || len > MAX_LEN || !qmSide;
+});
+
+qmSubmitBtn.addEventListener("click", submitQuestion);
+
+async function submitQuestion() {
+  const text = qmTextarea.value.trim();
+  if (!text || text.length > MAX_LEN || !qmSide) return;
+
+  qmSubmitBtn.disabled = true;
+  try {
+    await db.ref("debate/questions").push({
+      text:      text,
+      side:      qmSide,
+      createdAt: Date.now(),
+      drawn:     false
+    });
+    questionModal.classList.remove("open");
+    showToast("提問已送出 ✓");
+  } catch(e) {
+    showToast("送出失敗，請重試");
+    qmSubmitBtn.disabled = false;
   }
 }
 

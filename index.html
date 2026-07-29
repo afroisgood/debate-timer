@@ -39,7 +39,7 @@
 
   #app {
     display: grid;
-    grid-template-rows: 68px 1fr auto;
+    grid-template-rows: auto 1fr auto;
     height: 100vh;
     min-height: 580px;
   }
@@ -50,15 +50,30 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 10px 20px;
     border-bottom: 2px solid var(--navy-dk);
     gap: 12px;
   }
   #title-bar h1 {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     color: var(--cream);
-    font-size: clamp(13px, 1.8vw, 24px);
-    font-weight: 800;
     letter-spacing: 0.02em;
+    line-height: 1.3;
+    min-width: 0;
+  }
+  #title-bar .title-main {
+    font-size: clamp(13px, 1.6vw, 20px);
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #title-bar .title-sub {
+    font-size: clamp(11px, 1.2vw, 15px);
+    font-weight: 600;
+    opacity: 0.85;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -359,15 +374,21 @@
     letter-spacing: 0.04em;
     transition: all 0.15s;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
   }
   .action-btn:hover { background: rgba(255,255,255,0.14); color: var(--cream); }
   .action-btn.danger { background: rgba(198,31,31,0.25); color: #FF9999; }
   .action-btn.danger:hover { background: rgba(198,31,31,0.45); }
-  #export-btn, #clear-votes-btn, #toggle-vote-btn, #reset-topic-btn, #reveal-vote-btn { display: none; }
+  a.action-btn { text-decoration: none; }
+  #export-btn, #clear-votes-btn, #toggle-vote-btn, #reset-topic-btn, #reveal-vote-btn, #draw-question-btn, #questions-admin-link { display: none; }
   .admin-active #export-btn,
   .admin-active #clear-votes-btn,
   .admin-active #toggle-vote-btn,
-  .admin-active #reveal-vote-btn { display: inline-block; }
+  .admin-active #reveal-vote-btn,
+  .admin-active #questions-admin-link { display: inline-flex; }
+  .admin-active.qna-active #draw-question-btn { display: inline-flex; }
   /* Reset topic btn lives in topic-vote-display, toggled via JS */
   #reset-topic-btn { height: 32px; padding: 0 12px; font-size: 12px; border-radius: 8px; }
 
@@ -469,6 +490,67 @@
     transition: background 0.15s;
   }
   #vro-close-btn:hover { background: rgba(255,255,255,0.18); color: var(--cream); }
+
+  /* ── Question Draw Overlay ── */
+  #question-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 101;
+    background: var(--navy-dk);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+  }
+  body.question-revealed #question-overlay { display: flex; }
+
+  #qo-label {
+    font-size: clamp(11px, 1.2vw, 14px);
+    font-weight: 700;
+    color: rgba(245,239,224,0.45);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  #qo-side {
+    font-size: clamp(16px, 2.2vw, 24px);
+    font-weight: 800;
+    padding: 4px 22px;
+    border-radius: 999px;
+    color: var(--cream);
+  }
+  #qo-side.pro { background: var(--coral); }
+  #qo-side.con { background: var(--orange); }
+  #qo-text {
+    font-size: clamp(22px, 3.6vw, 46px);
+    font-weight: 800;
+    color: var(--cream);
+    text-align: center;
+    padding: 0 60px;
+    line-height: 1.4;
+    max-width: 1000px;
+  }
+  .qo-spinning #qo-close-btn { display: none; }
+  #qo-close-btn {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: rgba(245,239,224,0.7);
+    border-radius: 50%;
+    font-size: 20px;
+    line-height: 1;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  #qo-close-btn:hover { background: rgba(255,255,255,0.18); color: var(--cream); }
 
   #comment-list {
     flex: 1;
@@ -779,7 +861,8 @@
     html, body { overflow: auto; }
     #app { grid-template-rows: auto 1fr auto; height: auto; min-height: 100vh; }
     #title-bar { padding: 10px 14px; height: auto; }
-    #title-bar h1 { font-size: clamp(12px, 3.5vw, 16px); white-space: normal; }
+    #title-bar .title-main { font-size: clamp(12px, 3.5vw, 16px); white-space: normal; }
+    #title-bar .title-sub { font-size: clamp(10px, 2.8vw, 13px); white-space: normal; }
     #main { grid-template-columns: 1fr; overflow: visible; }
     #right-panel { min-height: 55vh; }
     #comment-list { max-height: 280px; }
@@ -795,7 +878,10 @@
 
   <!-- Title Bar -->
   <header id="title-bar">
-    <h1>【社交沙龍】生活之間：從住民到公民 系列辯論活動　觀光產業是花蓮最該力推的產業嗎？</h1>
+    <h1>
+      <span class="title-main">【社交沙龍】生活之間：從住民到公民 系列辯論活動第三場次</span>
+      <span class="title-sub">政府經費應該優先支持「改善在地生活支持系統」而非「打造產業專業環境」</span>
+    </h1>
     <button id="qr-btn">📱 QR Code</button>
   </header>
 
@@ -875,6 +961,8 @@
             <button class="action-btn" id="toggle-vote-btn">停止投票</button>
             <button class="action-btn danger" id="clear-votes-btn">清除投票</button>
             <button class="action-btn" id="reveal-vote-btn">公布結果</button>
+            <button class="action-btn" id="draw-question-btn">🎲 抽選提問</button>
+            <a class="action-btn" id="questions-admin-link" href="questions.html" target="_blank" rel="noopener">🙋 提問管理</a>
             <button class="action-btn" id="export-btn">匯出資料</button>
             <button class="action-btn" id="admin-btn">管理員</button>
           </div>
@@ -923,7 +1011,7 @@
 <!-- Vote Result Overlay -->
 <div id="vote-result-overlay">
   <div id="vro-label">投票結果</div>
-  <div id="vro-topic">觀光產業是花蓮最該力推的產業嗎？</div>
+  <div id="vro-topic">政府經費應該優先支持「改善在地生活支持系統」而非「打造產業專業環境」</div>
   <div id="vro-counts">
     <div class="vro-side pro">
       <div class="vro-side-name">正方</div>
@@ -942,6 +1030,14 @@
   </div>
   <div id="vro-total">共 0 票</div>
   <button id="vro-close-btn">✕</button>
+</div>
+
+<!-- Question Draw Overlay -->
+<div id="question-overlay">
+  <div id="qo-label">觀眾提問</div>
+  <div id="qo-side">正方</div>
+  <div id="qo-text">提問內容</div>
+  <button id="qo-close-btn">✕</button>
 </div>
 
 <!-- Admin Modal -->
@@ -1018,21 +1114,23 @@ const ADMIN_PASSWORD = "debate2026";
 // STAGES
 // ══════════════════════════════════════════════════════════════
 const STAGES = [
-  ["正方立論 1",          180],
-  ["反方立論 1",          180],
-  ["正方立論 2",          180],
-  ["反方立論 2",          180],
-  ["正方質詢",            180],
-  ["反方質詢",            180],
-  ["正方申論",            180],
-  ["反方申論",            180],
-  ["討論時間",             60],
-  ["自由辯論",            180],
-  ["討論時間",             60],
-  ["正方結辯",           120],
-  ["反方結辯",           120],
-  ["觀眾投票",           600],
-  ["活動結束",             0],
+  ["正方一辯立論",           240],
+  ["反方一辯立論",           240],
+  ["正方二辯立論",           180],
+  ["反方二辯立論",           180],
+  ["正方三辯質詢反方一辯",   180],
+  ["反方三辯質詢正方一辯",   180],
+  ["正方二辯質詢反方三辯",   180],
+  ["反方二辯質詢正方三辯",   180],
+  ["觀眾提問正方",           180],
+  ["正方回應",               180],
+  ["觀眾提問反方",           180],
+  ["反方回應",               180],
+  ["正方二辯結辯",           180],
+  ["反方二辯結辯",           180],
+  ["觀眾投票",               600],
+  ["開放式討論",             900],
+  ["活動結束",                 0],
 ];
 
 const TOPICS = [
@@ -1536,6 +1634,14 @@ function loadStage() {
   }
   // Sync stage name to Firebase so vote.html knows current stage
   db.ref("debate/config/currentStage").set(STAGES[stageIndex][0]).catch(() => {});
+
+  // Question draw button: only relevant during 觀眾提問正方/反方
+  const stageName = STAGES[stageIndex][0];
+  questionSide = stageName === "觀眾提問正方" ? "正方" : stageName === "觀眾提問反方" ? "反方" : null;
+  commentSection.classList.toggle("qna-active", !!questionSide);
+  const drawBtn = document.getElementById("draw-question-btn");
+  if (drawBtn) drawBtn.textContent = questionSide ? `🎲 抽選提問（${questionSide}）` : "🎲 抽選提問";
+
   updateDisplay();
 }
 
@@ -1582,6 +1688,8 @@ db.ref("debate/votes").on("value", snap => {
 let isAdminMode = false;
 let commentsCache = [];
 let likesCache    = {};
+let questionSide  = null; // "正方" | "反方" | null — derived from current stage
+let questionsCache = {};  // id -> {nickname, text, side, drawn} from debate/questions
 
 db.ref("debate/comments").orderByChild("createdAt").on("value", snap => {
   commentsCache = [];
@@ -1702,7 +1810,7 @@ function setControlsEnabled(on) {
   const ssBtn = document.getElementById("switch-side-btn");
   if (ssBtn && !on) ssBtn.disabled = true;
   // Reset topic votes btn
-  document.getElementById("reset-topic-btn").style.display = on ? "inline-block" : "none";
+  document.getElementById("reset-topic-btn").style.display = on ? "inline-flex" : "none";
   // Toggle btn respects isAdminMode via updateToggleBtn()
   updateToggleBtn();
 }
@@ -1762,6 +1870,68 @@ document.getElementById("reveal-vote-btn").addEventListener("click", () => {
 });
 document.getElementById("vro-close-btn").addEventListener("click", () => {
   db.ref("debate/config/voteRevealed").set(false);
+});
+
+// ══════════════════════════════════════════════════════════════
+// QUESTION DRAW (admin only) — 觀眾提問正方/反方
+// ══════════════════════════════════════════════════════════════
+db.ref("debate/questions").on("value", snap => {
+  questionsCache = snap.val() || {};
+});
+
+db.ref("debate/config/questionRevealed").on("value", snap => {
+  document.body.classList.toggle("question-revealed", snap.val() === true);
+});
+
+db.ref("debate/config/selectedQuestion").on("value", snap => {
+  const q = snap.val();
+  if (!q) return;
+  document.getElementById("qo-side").textContent = q.side;
+  document.getElementById("qo-side").className   = q.side === "正方" ? "pro" : "con";
+  document.getElementById("qo-text").textContent = q.text;
+});
+
+let drawSpinTimer = null;
+
+document.getElementById("draw-question-btn").addEventListener("click", () => {
+  if (!questionSide || drawSpinTimer) return;
+  const candidates = Object.entries(questionsCache)
+    .filter(([, q]) => q && q.side === questionSide && !q.drawn && !q.hidden);
+  if (candidates.length === 0) {
+    alert(`目前沒有${questionSide}的未抽提問`);
+    return;
+  }
+
+  const overlay = document.getElementById("question-overlay");
+  const sideEl  = document.getElementById("qo-side");
+  const textEl  = document.getElementById("qo-text");
+  overlay.classList.add("qo-spinning");
+  document.body.classList.add("question-revealed");
+
+  let ticks = 0;
+  const maxTicks = 14;
+  drawSpinTimer = setInterval(() => {
+    const [, q] = candidates[Math.floor(Math.random() * candidates.length)];
+    sideEl.textContent = q.side;
+    sideEl.className   = q.side === "正方" ? "pro" : "con";
+    textEl.textContent = q.text;
+    ticks++;
+    if (ticks >= maxTicks) {
+      clearInterval(drawSpinTimer);
+      drawSpinTimer = null;
+      overlay.classList.remove("qo-spinning");
+      const [finalId, finalQ] = candidates[Math.floor(Math.random() * candidates.length)];
+      db.ref(`debate/questions/${finalId}`).update({ drawn: true }).catch(() => {});
+      db.ref("debate/config/selectedQuestion").set({
+        id: finalId, text: finalQ.text, side: finalQ.side
+      }).catch(() => {});
+      db.ref("debate/config/questionRevealed").set(true).catch(() => {});
+    }
+  }, 80);
+});
+
+document.getElementById("qo-close-btn").addEventListener("click", () => {
+  db.ref("debate/config/questionRevealed").set(false);
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -2005,6 +2175,9 @@ window.addEventListener("beforeunload", () => {
   db.ref("debate/config/voteRevealed").off();
   db.ref("debate/topicVotes").off();
   db.ref("debate/config/currentStage").off();
+  db.ref("debate/questions").off();
+  db.ref("debate/config/questionRevealed").off();
+  db.ref("debate/config/selectedQuestion").off();
 });
 
 // ══════════════════════════════════════════════════════════════
