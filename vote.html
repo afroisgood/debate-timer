@@ -6,20 +6,20 @@
 <title>辯論活動 — 投票與留言</title>
 <style>
   :root {
-    --navy:      #12474A;
-    --navy-dk:   #0A2E30;
-    --navy-lt:   #1D5A5D;
-    --cream:     #F2E9D8;
-    --yellow:    #F0B429;
-    --yel-dk:    #D19A1F;
-    --coral:     #F0654B;
-    --cor-dk:    #D14E39;
-    --orange:    #4C9A6A;
-    --ora-dk:    #3C7D56;
-    --ink:       #22302C;
+    --navy:      #123B3C;
+    --navy-dk:   #0A2324;
+    --navy-lt:   #1D5F5E;
+    --cream:     #F3ECDA;
+    --yellow:    #D9A441;
+    --yel-dk:    #B8862F;
+    --coral:     #E8734F;
+    --cor-dk:    #C85A38;
+    --orange:    #7BAE7F;
+    --ora-dk:    #5E9563;
+    --ink:       #1B2422;
     --white:     #FFFFFF;
-    --gray-blue: #4A6B6A;
-    --muted:     rgba(242,233,216,0.45);
+    --gray-blue: #8FAFA8;
+    --muted:     rgba(243,236,218,0.45);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -200,27 +200,27 @@
   .vote-btn .btn-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; opacity: 0.75; }
 
   .vote-btn.pro {
-    background: rgba(232,90,124,0.12);
-    border-color: rgba(232,90,124,0.3);
+    background: rgba(232,115,79,0.12);
+    border-color: rgba(232,115,79,0.3);
     color: var(--coral);
   }
   .vote-btn.pro.selected {
     background: var(--coral);
     border-color: var(--coral);
     color: var(--white);
-    box-shadow: 0 6px 20px rgba(232,90,124,0.45);
+    box-shadow: 0 6px 20px rgba(232,115,79,0.45);
     transform: scale(1.03);
   }
   .vote-btn.con {
-    background: rgba(232,116,44,0.12);
-    border-color: rgba(232,116,44,0.3);
+    background: rgba(123,174,127,0.12);
+    border-color: rgba(123,174,127,0.3);
     color: var(--orange);
   }
   .vote-btn.con.selected {
     background: var(--orange);
     border-color: var(--orange);
     color: var(--white);
-    box-shadow: 0 6px 20px rgba(232,116,44,0.45);
+    box-shadow: 0 6px 20px rgba(123,174,127,0.45);
     transform: scale(1.03);
   }
 
@@ -245,9 +245,9 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: rgba(245,239,224,0.08);
-    border: 1px solid rgba(245,239,224,0.15);
-    color: rgba(245,239,224,0.3);
+    background: rgba(243,236,218,0.08);
+    border: 1px solid rgba(243,236,218,0.15);
+    color: rgba(243,236,218,0.3);
     font-size: 16px;
     cursor: pointer;
     display: flex;
@@ -257,8 +257,8 @@
     transition: background 0.2s, color 0.2s;
   }
   body.admin-logged-in #admin-fab {
-    background: rgba(244,196,48,0.2);
-    border-color: rgba(244,196,48,0.4);
+    background: rgba(217,164,65,0.2);
+    border-color: rgba(217,164,65,0.4);
     color: var(--yellow);
   }
 
@@ -267,14 +267,14 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(8,26,51,0.85);
+    background: rgba(10,35,36,0.85);
     z-index: 300;
     align-items: center;
     justify-content: center;
   }
   #admin-modal.open { display: flex; }
   #admin-modal-box {
-    background: #1A3A6A;
+    background: #1D5F5E;
     border-radius: 16px;
     padding: 28px 24px;
     width: min(320px, 90vw);
@@ -323,8 +323,8 @@
   /* Admin stats bar (visible when logged in) */
   #admin-stats-bar {
     display: none;
-    background: rgba(244,196,48,0.1);
-    border: 1px solid rgba(244,196,48,0.25);
+    background: rgba(217,164,65,0.1);
+    border: 1px solid rgba(217,164,65,0.25);
     border-radius: 12px;
     padding: 10px 16px;
     margin: 12px 18px 0;
@@ -348,12 +348,12 @@
   }
   #admin-stats-bar .adm-pro { color: var(--coral); font-weight: 700; }
   #admin-stats-bar .adm-con { color: var(--orange); font-weight: 700; }
-  #admin-stats-bar .adm-total { color: rgba(245,239,224,0.6); }
+  #admin-stats-bar .adm-total { color: rgba(243,236,218,0.6); }
   #admin-logout-btn {
     background: none;
-    border: 1px solid rgba(245,239,224,0.2);
+    border: 1px solid rgba(243,236,218,0.2);
     border-radius: 8px;
-    color: rgba(245,239,224,0.5);
+    color: rgba(243,236,218,0.5);
     font-size: 11px;
     padding: 4px 8px;
     cursor: pointer;
@@ -420,14 +420,14 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(8,26,51,0.85);
+    background: rgba(10,35,36,0.85);
     z-index: 300;
     align-items: center;
     justify-content: center;
   }
   #question-modal.open { display: flex; }
   #question-modal-box {
-    background: #1A3A6A;
+    background: #1D5F5E;
     border-radius: 16px;
     padding: 28px 24px;
     width: min(360px, 90vw);
@@ -496,7 +496,7 @@
     transition: border-color 0.15s;
     margin-bottom: 16px;
   }
-  #comment-input-wrap:focus-within { border-color: rgba(244,196,48,0.5); }
+  #comment-input-wrap:focus-within { border-color: rgba(217,164,65,0.5); }
   #comment-textarea {
     background: none;
     border: none;
@@ -542,7 +542,7 @@
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
-    background: rgba(244,196,48,0.95);
+    background: rgba(217,164,65,0.95);
     color: var(--ink);
     font-size: 14px;
     font-weight: 700;
@@ -613,7 +613,7 @@
     flex-shrink: 0;
   }
   .like-btn.liked {
-    background: rgba(244,196,48,0.28);
+    background: rgba(217,164,65,0.28);
     border-color: var(--yellow);
     color: var(--yellow);
   }
@@ -628,7 +628,7 @@
   }
   #tv-instruction {
     font-size: 14px;
-    color: rgba(245,239,224,0.75);
+    color: rgba(243,236,218,0.75);
     line-height: 1.6;
     margin-bottom: 10px;
   }
@@ -650,7 +650,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   .tv-card.tv-selected {
-    background: rgba(244,196,48,0.14);
+    background: rgba(217,164,65,0.14);
     border-color: var(--yellow);
   }
   .tv-card.tv-full:not(.tv-selected) {
@@ -663,8 +663,8 @@
     pointer-events: none;
   }
   #tv-closed-notice {
-    background: rgba(198,31,31,0.15);
-    border: 1px solid rgba(198,31,31,0.4);
+    background: rgba(232,52,42,0.15);
+    border: 1px solid rgba(232,52,42,0.4);
     border-radius: 10px;
     padding: 10px 14px;
     font-size: 13px;
@@ -697,7 +697,7 @@
   }
   .tv-num {
     font-size: 12px; font-weight: 800;
-    color: rgba(245,239,224,0.45);
+    color: rgba(243,236,218,0.45);
     flex-shrink: 0; padding-top: 2px;
   }
   .tv-text {
@@ -719,7 +719,7 @@
     border-radius: 4px; overflow: hidden;
   }
   .tv-bar-fill {
-    height: 100%; background: rgba(245,239,224,0.35);
+    height: 100%; background: rgba(243,236,218,0.35);
     border-radius: 4px;
     transition: width 0.7s cubic-bezier(.4,0,.2,1);
     width: 0%;
@@ -727,7 +727,7 @@
   .tv-card.tv-selected .tv-bar-fill { background: var(--yellow); }
   .tv-count-text {
     font-size: 12px; font-weight: 700;
-    color: rgba(245,239,224,0.55);
+    color: rgba(243,236,218,0.55);
     white-space: nowrap; min-width: 32px; text-align: right;
   }
 
@@ -810,7 +810,7 @@
   <!-- Vote Section -->
   <div class="app-section" id="vote-section">
     <div class="section-label" id="vote-section-label">投票（可隨時更改）</div>
-    <div id="vote-closed-notice" style="display:none; background:rgba(198,31,31,0.15); border:1px solid rgba(198,31,31,0.4); border-radius:10px; padding:10px 14px; font-size:13px; color:#FF9999; text-align:center; margin-bottom:10px;">
+    <div id="vote-closed-notice" style="display:none; background:rgba(232,52,42,0.15); border:1px solid rgba(232,52,42,0.4); border-radius:10px; padding:10px 14px; font-size:13px; color:#FF9999; text-align:center; margin-bottom:10px;">
       投票目前已關閉，請等待主持人開放
     </div>
     <div id="vote-buttons">
